@@ -181,7 +181,7 @@ class CCodeGenerator:
             return [f"{prefix}{self._expression(expression)};"]
 
         if isinstance(statement, IfStatement):
-            lines = [f"{prefix}if ({self._expression(statement.condition)}) {{"]
+            lines = [f"{prefix}if {self._condition(statement.condition)} {{"]
             lines.extend(
                 self._block_lines(statement.then_branch, indent=indent + 1)
             )
@@ -196,7 +196,7 @@ class CCodeGenerator:
             return lines
 
         if isinstance(statement, WhileStatement):
-            lines = [f"{prefix}while ({self._expression(statement.condition)}) {{"]
+            lines = [f"{prefix}while {self._condition(statement.condition)} {{"]
             lines.extend(self._block_lines(statement.body, indent=indent + 1))
             lines.append(f"{prefix}}}")
             return lines
@@ -206,6 +206,12 @@ class CCodeGenerator:
             f"C backend bu statement'i desteklemiyor: {type(statement).__name__}",
             statement.location,
         )
+
+    def _condition(self, expression: Expression) -> str:
+        rendered = self._expression(expression)
+        if rendered.startswith("(") and rendered.endswith(")"):
+            return rendered
+        return f"({rendered})"
 
     def _or_return_let(self, statement: LetStatement, indent: int) -> list[str]:
         expression = statement.value
