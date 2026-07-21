@@ -16,6 +16,7 @@ from ast_nodes import (
     IfStatement,
     LetStatement,
     Literal,
+    MatchStatement,
     MemberExpression,
     OrReturnExpression,
     Program,
@@ -24,7 +25,6 @@ from ast_nodes import (
     UnaryExpression,
     WhileStatement,
 )
-
 
 CAPABILITY_MEMBERS = {
     "net": "NetCaps",
@@ -185,7 +185,84 @@ class SemanticChecker:
             self._check_block(statement.body)
             return
 
+        if isinstance(statement, MatchStatement):
+            self._check_match_statement(statement)
+            return
+
         raise AssertionError(f"Desteklenmeyen statement: {type(statement).__name__}")
+
+    def _check_match_statement(self, statement: MatchStatement) -> None:
+        value_type = self._check_expression(statement.value)
+        generic = self._generic_parts(value_type) if value_type else None
+        if generic and generic[0] == "Option" and len(generic[1]) == 1:
+            payloads: dict[str, str | None] = {
+                "Some": generic[1][0],
+                "None": None,
+            }
+        elif generic and generic[0] == "Result" and len(generic[1]) == 2:
+            payloads = {
+                "Ok": generic[1][0],
+                "Err": generic[1][1],
+            }
+        else:
+            raise SemanticError(
+                "KS1501",
+                f"match yalnızca Option veya Result üzerinde kullanılabilir; '{value_type}' bulundu.",
+                statement.location,
+            )
+
+        seen: set[str] = set()
+        for arm in statement.arms:
+            kind = arm.pattern.kind
+            if kind not in payloads:
+                expected = ", ".join(payloads)
+                raise SemanticError(
+                    "KS1501",
+                    f"'{kind}' bu match için geçerli değil; {expected} bekleniyor.",
+                    arm.pattern.location,
+                )
+            if kind in seen:
+                raise SemanticError(
+                    "KS1502",
+                    f"'{kind}' match kolu birden fazla tanımlandı.",
+                    arm.pattern.location,
+                )
+            seen.add(kind)
+
+            payload_type = payloads[kind]
+            binding = arm.pattern.binding
+            if payload_type is None and binding is not None:
+                raise SemanticError(
+                    "KS1501",
+                    f"'{kind}' deseni değer bağlayamaz.",
+                    arm.pattern.location,
+                )
+            if payload_type is not None and binding is None:
+                raise SemanticError(
+                    "KS1501",
+                    f"'{kind}' deseni bir değer adı bağlamalıdır.",
+                    arm.pattern.location,
+                )
+
+            self.scopes.append({})
+            try:
+                if binding is not None:
+                    self._declare(
+                        Symbol(binding, payload_type, False, arm.pattern.location)
+                    )
+                    self.variable_count += 1
+                self._check_block(arm.body, new_scope=False)
+            finally:
+                self.scopes.pop()
+
+        missing = set(payloads) - seen
+        if missing:
+            missing_text = ", ".join(sorted(missing))
+            raise SemanticError(
+                "KS1503",
+                f"match eksik: {missing_text} kolu tanımlanmalıdır.",
+                statement.location,
+            )
 
     def _check_expression(self, expression: Expression) -> str | None:
         if isinstance(expression, Literal):

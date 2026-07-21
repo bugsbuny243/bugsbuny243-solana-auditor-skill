@@ -142,12 +142,34 @@ class WhileStatement:
     location: SourceLocation
 
 
+@dataclass(frozen=True, slots=True)
+class MatchPattern:
+    kind: str
+    binding: str | None
+    location: SourceLocation
+
+
+@dataclass(frozen=True, slots=True)
+class MatchArm:
+    pattern: MatchPattern
+    body: Block
+    location: SourceLocation
+
+
+@dataclass(frozen=True, slots=True)
+class MatchStatement:
+    value: Expression
+    arms: tuple[MatchArm, ...]
+    location: SourceLocation
+
+
 Statement: TypeAlias = (
     LetStatement
     | ReturnStatement
     | ExpressionStatement
     | IfStatement
     | WhileStatement
+    | MatchStatement
 )
 
 

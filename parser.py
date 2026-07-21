@@ -14,6 +14,9 @@ from ast_nodes import (
     IfStatement,
     LetStatement,
     Literal,
+    MatchArm,
+    MatchPattern,
+    MatchStatement,
     MemberExpression,
     OrReturnExpression,
     Parameter,
@@ -114,6 +117,8 @@ class Parser:
             return self._if_statement(self._previous())
         if self._match(TokenType.WHILE):
             return self._while_statement(self._previous())
+        if self._match(TokenType.MATCH):
+            return self._match_statement(self._previous())
         expression = self._expression()
         self._match(TokenType.SEMICOLON)
         return ExpressionStatement(expression, expression.location)
@@ -143,6 +148,26 @@ class Parser:
         condition = self._expression()
         return WhileStatement(condition, self._block(), self._location(while_token))
 
+    def _match_statement(self, match_token: Token) -> MatchStatement:
+        value = self._expression()
+        self._consume(TokenType.LEFT_BRACE, "match değeri sonrasında '{' bekleniyordu.")
+        arms: list[MatchArm] = []
+        while not self._check(TokenType.RIGHT_BRACE) and not self._is_at_end():
+            pattern = self._match_pattern()
+            self._consume(TokenType.FAT_ARROW, "match deseni sonrasında '=>' bekleniyordu.")
+            arms.append(MatchArm(pattern, self._block(), pattern.location))
+        self._consume(TokenType.RIGHT_BRACE, "match sonunda '}' bekleniyordu.")
+        return MatchStatement(value, tuple(arms), self._location(match_token))
+
+    def _match_pattern(self) -> MatchPattern:
+        token = self._consume(TokenType.TYPE, "Some, None, Ok veya Err deseni bekleniyordu.")
+        binding: str | None = None
+        if self._match(TokenType.LEFT_PAREN):
+            name = self._consume(TokenType.IDENTIFIER, "Desen içinde bağlanacak isim bekleniyordu.")
+            binding = name.value
+            self._consume(TokenType.RIGHT_PAREN, "Desen bağından sonra ')' bekleniyordu.")
+        return MatchPattern(token.value, binding, self._location(token))
+
     def _expression(self) -> Expression:
         return self._assignment()
 
@@ -169,6 +194,7 @@ class Parser:
                 TokenType.RETURN,
                 TokenType.IF,
                 TokenType.WHILE,
+                TokenType.MATCH,
                 TokenType.ELSE,
                 TokenType.EOF,
             )

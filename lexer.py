@@ -16,6 +16,7 @@ class TokenType(Enum):
     IF = auto()
     ELSE = auto()
     WHILE = auto()
+    MATCH = auto()
     TRUE = auto()
     FALSE = auto()
 
@@ -39,6 +40,7 @@ class TokenType(Enum):
     SEMICOLON = auto()
 
     ARROW = auto()
+    FAT_ARROW = auto()
     EQUAL_EQUAL = auto()
     BANG_EQUAL = auto()
     LESS = auto()
@@ -77,6 +79,7 @@ class Lexer:
         "if": TokenType.IF,
         "else": TokenType.ELSE,
         "while": TokenType.WHILE,
+        "match": TokenType.MATCH,
         "true": TokenType.TRUE,
         "false": TokenType.FALSE,
     }
@@ -164,7 +167,9 @@ class Lexer:
                 self._add_token(TokenType.MINUS, "-")
             return
         if char == "=":
-            if self._match("="):
+            if self._match(">"):
+                self._add_token(TokenType.FAT_ARROW, "=>")
+            elif self._match("="):
                 self._add_token(TokenType.EQUAL_EQUAL, "==")
             else:
                 self._add_token(TokenType.EQUAL, "=")
