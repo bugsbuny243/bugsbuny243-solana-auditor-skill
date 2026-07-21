@@ -57,8 +57,10 @@ def command_emit_c(path: str, output: str | None) -> int:
     program, _ = checked_program(path)
     code = generate_c(program)
     if output:
-        Path(output).write_text(code, encoding="utf-8")
-        print(f"KOSCHEI C OUTPUT: {output}")
+        output_path = Path(output)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(code, encoding="utf-8")
+        print(f"KOSCHEI C OUTPUT: {output_path}")
     else:
         print(code, end="")
     return 0
