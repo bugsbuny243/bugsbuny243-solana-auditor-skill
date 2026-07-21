@@ -1,93 +1,97 @@
-# solana-auditor-skill
+# Koschei Programming Language (`.ks`)
 
-A production-grade Solana security auditing skill for [Solana AI Kit](https://github.com/solanabr/solana-ai-kit) and Claude Code.
+> **Çökmeyen, Hacklenemeyen, Ölümsüz Dil.**  
+> **Uncrashable, Unhackable, Immortal.**
 
-Built on top of [Koschei Web3 Hub](https://tradepigloball.co) — a live, free Solana security intelligence platform.
+Koschei, kolay okunabilen sözdizimini bellek güvenliği ve capability tabanlı sistem güvenliğiyle birleştirmeyi amaçlayan yeni nesil bağımsız bir programlama dilidir.
 
-## Problem
+Bu repository yalnızca Koschei dilinin compiler, runtime, standart kütüphane ve geliştirici araçlarını içerir.
 
-Solana builders and founders need fast, reliable security signals before interacting with tokens, programs, wallets, or claim pages. Existing tools are fragmented, expensive, or require wallet connection. There is no open, composable AI skill that covers the full auditor lifecycle.
+## Temel ilkeler
 
-## Solution
+- `null` ve `nil` yoktur; bulunmayabilecek değerler `Option<T>` ile temsil edilir.
+- Hatalar `Result<T, E>` ve `or return` akışıyla ele alınır.
+- Değişkenler varsayılan olarak immutable'dır; değişiklik için `let mut` gerekir.
+- Ağ, disk, environment ve process erişimi açık capability değerleri gerektirir.
+- Compiler, kapsam ve capability ihlallerini program çalışmadan önce reddeder.
+- Uzun vadeli bellek modeli GC'siz static region inference üzerine kuruludur.
 
-`solana-auditor-skill` gives Claude Code a complete Solana security toolkit:
+## Örnek Koschei kodu
 
-- **Token risk** — mint authority, freeze authority, supply, holder concentration
-- **Program audit** — upgrade authority, verifiable build, known exploit patterns
-- **Wallet score** — activity posture, funding source, behavioural signals
-- **Sybil / launch cluster radar** — early buyer clustering, creator links, sniper timing
-- **Claim shield** — walletless URL and program risk before connecting
-- **Signed report generator** — A–F grade, risk index 0-100, deterministic rule-based verdict
+```ks
+fn fetch_data(net: NetCaps, url: String) -> String or Error {
+    let response = net.get(url) or return Error("Veri alınamadı")
+    return response.text()
+}
 
-## Install
+fn main(caps: SystemCaps) {
+    let api_net = caps.net.allow("https://api.example.com")
+    let mut retry_count = 3
+    let response = fetch_data(api_net, "https://api.example.com/v1")
+
+    retry_count = 2
+    println(response)
+}
+```
+
+## Mevcut compiler hattı
+
+```text
+.ks source
+    -> lexer.py
+    -> parser.py
+    -> ast_nodes.py
+    -> semantic.py
+```
+
+Mevcut prototip şunları destekler:
+
+- `fn` fonksiyon tanımları
+- Tipli parametreler
+- `let` ve `let mut`
+- Fonksiyon ve metot çağrıları
+- `return` ve `or return`
+- AST üretimi
+- Immutable değer denetimi
+- Capability scope denetimi
+- Satır ve sütun bilgili compiler hataları
+
+## CLI
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/bugsbuny243/solana-auditor-skill/main/install.sh | bash
+python koschei.py tokens examples/capability.ks
+python koschei.py ast examples/capability.ks
+python koschei.py check examples/capability.ks
 ```
 
-Or add as a submodule:
+Örnek doğrulama çıktısı:
+
+```text
+KOSCHEI CHECK: PASS
+```
+
+## Testler
 
 ```bash
-git submodule add https://github.com/bugsbuny243/solana-auditor-skill .claude/skills/solana-auditor-skill
+python -m unittest discover -s tests -v
 ```
 
-## Usage in Claude Code
+GitHub Actions, her push ve pull request üzerinde compiler testlerini otomatik çalıştırır.
 
-```
-/skill solana-auditor-skill
+## Yol haritası
 
-# Token audit
-Audit this token: So11111111111111111111111111111111111111112
+- `Option<T>`, `Some` ve `None`
+- `Result<T, E>`, `Ok` ve `Err`
+- Fonksiyon tip kontrolü
+- Koschei → C backend
+- Native binary üretimi
+- Static region inference
+- Capability runtime ABI
+- Sentinel, Tarpit ve Phantom Sandbox runtime katmanı
 
-# Program audit  
-Check this program for upgrade authority risk: TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA
+## Proje durumu
 
-# Full report
-Generate a full security report for: 9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM
-```
-
-## Output example
-
-```
-KOSCHEI SECURITY VERDICT
-Token: EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v
-
-Grade:       A
-Risk Index:  12/100
-Action:      Monitor
-Signed:      Yes
-Rule version: koschei-security-v1
-
-Pump.fun Sybil Radar:    Low — no cluster evidence
-Raydium Pool Guardian:   Low — authority renounced
-Walletless Claim Shield: Low — no unsafe instructions
-
-Source: Alchemy Solana HTTPS RPC
-```
-
-## Structure
-
-```
-solana-auditor-skill/
-├── SKILL.md              ← entry point + routing table
-├── README.md
-├── install.sh
-├── skills/
-│   ├── token-risk.md
-│   ├── program-audit.md
-│   ├── wallet-score.md
-│   ├── sybil-radar.md
-│   ├── claim-shield.md
-│   └── report-generator.md
-└── rules/
-    └── scoring-rules.md  ← deterministic A-F grading logic
-```
-
-## Live product
-
-This skill is extracted from [Koschei Web3 Hub](https://tradepigloball.co) — a free, no-custody Solana security intelligence platform live in production.
-
-GitHub: [bugsbuny243/Koschei-Web3-Hub](https://github.com/bugsbuny243/Koschei-Web3-Hub)
+Koschei erken compiler geliştirme aşamasındadır. Sözdizimi ve runtime sözleşmeleri v1.0'a kadar değişebilir.
 
 ## License
 
