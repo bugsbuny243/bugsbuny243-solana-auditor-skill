@@ -14,11 +14,18 @@ class SourceLocation:
 
 @dataclass(frozen=True, slots=True)
 class TypeRef:
-    names: tuple[str, ...]
+    name: str
     location: SourceLocation
+    arguments: tuple["TypeRef", ...] = field(default_factory=tuple)
+    alternatives: tuple["TypeRef", ...] = field(default_factory=tuple)
 
     def __str__(self) -> str:
-        return " or ".join(self.names)
+        if self.alternatives:
+            return " or ".join(str(item) for item in self.alternatives)
+        if self.arguments:
+            rendered = ", ".join(str(item) for item in self.arguments)
+            return f"{self.name}<{rendered}>"
+        return self.name
 
 
 @dataclass(frozen=True, slots=True)
@@ -42,29 +49,29 @@ class Literal:
 
 @dataclass(frozen=True, slots=True)
 class MemberExpression:
-    object: Expression
+    object: "Expression"
     member: str
     location: SourceLocation
 
 
 @dataclass(frozen=True, slots=True)
 class CallExpression:
-    callee: Expression
-    arguments: tuple[Expression, ...]
+    callee: "Expression"
+    arguments: tuple["Expression", ...]
     location: SourceLocation
 
 
 @dataclass(frozen=True, slots=True)
 class AssignmentExpression:
-    target: Expression
-    value: Expression
+    target: "Expression"
+    value: "Expression"
     location: SourceLocation
 
 
 @dataclass(frozen=True, slots=True)
 class OrReturnExpression:
-    value: Expression
-    error: Expression | None
+    value: "Expression"
+    error: "Expression | None"
     location: SourceLocation
 
 
