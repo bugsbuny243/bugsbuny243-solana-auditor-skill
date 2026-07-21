@@ -26,5 +26,19 @@ jobs:
       - name: Run unit tests
         run: python -m unittest discover -s tests -v
 
-      - name: Check example program
+      - name: Check capability example
         run: python koschei.py check examples/capability.ks
+
+      - name: Check safe types example
+        run: python koschei.py check examples/safe_types.ks
+
+      - name: Emit C source
+        run: python koschei.py emit-c examples/hello.ks -o build/hello.c
+
+      - name: Build native binary
+        run: python koschei.py build examples/hello.ks -o build/hello
+
+      - name: Run native binary
+        run: |
+          output="$(./build/hello)"
+          test "$output" = $'Koschei\n1'
