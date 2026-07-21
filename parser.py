@@ -1,15 +1,17 @@
-"""Koschei (.ks) için recursive-descent parser prototipi."""
+"""Koschei (.ks) için recursive-descent parser."""
 
 from __future__ import annotations
 
 from ast_nodes import (
     AssignmentExpression,
+    BinaryExpression,
     Block,
     CallExpression,
     Expression,
     ExpressionStatement,
     FunctionDeclaration,
     Identifier,
+    IfStatement,
     LetStatement,
     Literal,
     MemberExpression,
@@ -20,6 +22,8 @@ from ast_nodes import (
     SourceLocation,
     Statement,
     TypeRef,
+    UnaryExpression,
+    WhileStatement,
 )
 from lexer import Token, TokenType, tokenize
 
@@ -47,14 +51,12 @@ class Parser:
         fn_token = self._consume(TokenType.FN, "Fonksiyon 'fn' ile başlamalıdır.")
         name = self._consume(TokenType.IDENTIFIER, "Fonksiyon adı bekleniyordu.")
         self._consume(TokenType.LEFT_PAREN, "Fonksiyon adından sonra '(' bekleniyordu.")
-
         parameters: list[Parameter] = []
         if not self._check(TokenType.RIGHT_PAREN):
             while True:
                 parameters.append(self._parameter())
                 if not self._match(TokenType.COMMA):
                     break
-
         self._consume(TokenType.RIGHT_PAREN, "Parametrelerden sonra ')' bekleniyordu.")
         return_type = self._type_ref() if self._match(TokenType.ARROW) else None
         body = self._block()
@@ -93,11 +95,7 @@ class Parser:
                 if not self._match(TokenType.COMMA):
                     break
             self._consume(TokenType.GREATER, "Generic tip sonunda '>' bekleniyordu.")
-        return TypeRef(
-            name=token.value,
-            location=self._location(token),
-            arguments=tuple(arguments),
-        )
+        return TypeRef(token.value, self._location(token), tuple(arguments))
 
     def _block(self) -> Block:
         self._consume(TokenType.LEFT_BRACE, "Blok başlangıcı için '{' bekleniyordu.")
@@ -112,6 +110,10 @@ class Parser:
             return self._let_statement(self._previous())
         if self._match(TokenType.RETURN):
             return self._return_statement(self._previous())
+        if self._match(TokenType.IF):
+            return self._if_statement(self._previous())
+        if self._match(TokenType.WHILE):
+            return self._while_statement(self._previous())
         expression = self._expression()
         self._match(TokenType.SEMICOLON)
         return ExpressionStatement(expression, expression.location)
@@ -122,12 +124,7 @@ class Parser:
         self._consume(TokenType.EQUAL, "Değişken tanımında '=' bekleniyordu.")
         value = self._expression()
         self._match(TokenType.SEMICOLON)
-        return LetStatement(
-            name=name.value,
-            is_mutable=is_mutable,
-            value=value,
-            location=self._location(let_token),
-        )
+        return LetStatement(name.value, is_mutable, value, self._location(let_token))
 
     def _return_statement(self, return_token: Token) -> ReturnStatement:
         value: Expression | None = None
@@ -135,6 +132,16 @@ class Parser:
             value = self._expression()
         self._match(TokenType.SEMICOLON)
         return ReturnStatement(value, self._location(return_token))
+
+    def _if_statement(self, if_token: Token) -> IfStatement:
+        condition = self._expression()
+        then_branch = self._block()
+        else_branch = self._block() if self._match(TokenType.ELSE) else None
+        return IfStatement(condition, then_branch, else_branch, self._location(if_token))
+
+    def _while_statement(self, while_token: Token) -> WhileStatement:
+        condition = self._expression()
+        return WhileStatement(condition, self._block(), self._location(while_token))
 
     def _expression(self) -> Expression:
         return self._assignment()
@@ -150,15 +157,66 @@ class Parser:
         return expression
 
     def _or_return(self) -> Expression:
-        expression = self._call()
+        expression = self._equality()
         if self._match(TokenType.OR):
             or_token = self._previous()
-            self._consume(TokenType.RETURN, "İlk sürümde 'or' sonrasında 'return' bekleniyor.")
+            self._consume(TokenType.RETURN, "'or' sonrasında 'return' bekleniyor.")
             error: Expression | None = None
             if not self._check(TokenType.RIGHT_BRACE) and not self._check(TokenType.SEMICOLON):
-                error = self._call()
+                error = self._equality()
             return OrReturnExpression(expression, error, self._location(or_token))
         return expression
+
+    def _equality(self) -> Expression:
+        expression = self._comparison()
+        while self._match(TokenType.EQUAL_EQUAL, TokenType.BANG_EQUAL):
+            operator = self._previous()
+            right = self._comparison()
+            expression = BinaryExpression(
+                expression, operator.value, right, self._location(operator)
+            )
+        return expression
+
+    def _comparison(self) -> Expression:
+        expression = self._term()
+        while self._match(
+            TokenType.LESS,
+            TokenType.LESS_EQUAL,
+            TokenType.GREATER,
+            TokenType.GREATER_EQUAL,
+        ):
+            operator = self._previous()
+            right = self._term()
+            expression = BinaryExpression(
+                expression, operator.value, right, self._location(operator)
+            )
+        return expression
+
+    def _term(self) -> Expression:
+        expression = self._factor()
+        while self._match(TokenType.PLUS, TokenType.MINUS):
+            operator = self._previous()
+            right = self._factor()
+            expression = BinaryExpression(
+                expression, operator.value, right, self._location(operator)
+            )
+        return expression
+
+    def _factor(self) -> Expression:
+        expression = self._unary()
+        while self._match(TokenType.STAR, TokenType.SLASH):
+            operator = self._previous()
+            right = self._unary()
+            expression = BinaryExpression(
+                expression, operator.value, right, self._location(operator)
+            )
+        return expression
+
+    def _unary(self) -> Expression:
+        if self._match(TokenType.MINUS):
+            operator = self._previous()
+            return UnaryExpression(operator.value, self._unary(), self._location(operator))
+        return self._call()
 
     def _call(self) -> Expression:
         expression = self._primary()
@@ -189,6 +247,12 @@ class Parser:
         if self._match(TokenType.STRING, TokenType.NUMBER):
             token = self._previous()
             return Literal(token.value, self._location(token))
+        if self._match(TokenType.TRUE):
+            token = self._previous()
+            return Literal(True, self._location(token))
+        if self._match(TokenType.FALSE):
+            token = self._previous()
+            return Literal(False, self._location(token))
         if self._match(TokenType.IDENTIFIER, TokenType.TYPE):
             token = self._previous()
             return Identifier(token.value, self._location(token))
@@ -239,5 +303,4 @@ class Parser:
 
 
 def parse(source: str) -> Program:
-    """Kaynak metni tek çağrıda AST'ye dönüştürür."""
     return Parser.from_source(source).parse()
