@@ -135,8 +135,15 @@ class CCodeGenerator:
         if isinstance(statement, LetStatement):
             if isinstance(statement.value, OrReturnExpression):
                 return self._or_return_let(statement, indent)
+            inferred_type = self._infer_type(statement.value)
+            if inferred_type is None:
+                raise CodegenError(
+                    "KS5002",
+                    "Değişken tipi C backend tarafından çıkarılamadı.",
+                    statement.location,
+                )
             value_type = self._require_concrete_type(
-                self._infer_type(statement.value), statement.location
+                inferred_type, statement.location
             )
             self.local_scopes[-1][statement.name] = value_type
             return [
