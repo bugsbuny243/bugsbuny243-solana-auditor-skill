@@ -6,12 +6,14 @@ from dataclasses import dataclass
 
 from ast_nodes import (
     AssignmentExpression,
+    BinaryExpression,
     Block,
     CallExpression,
     Expression,
     ExpressionStatement,
     FunctionDeclaration,
     Identifier,
+    IfStatement,
     LetStatement,
     Literal,
     MemberExpression,
@@ -19,7 +21,10 @@ from ast_nodes import (
     Program,
     ReturnStatement,
     SourceLocation,
+    UnaryExpression,
+    WhileStatement,
 )
+
 
 CAPABILITY_MEMBERS = {
     "net": "NetCaps",
@@ -36,6 +41,7 @@ CAPABILITY_METHODS = {
 }
 
 BUILTIN_CALLS = {"print", "println", "Error", "Some", "Ok", "Err"}
+NUMERIC_TYPES = {"Int", "Float"}
 
 
 @dataclass(frozen=True, slots=True)
@@ -101,59 +107,92 @@ class SemanticChecker:
             for parameter in function.parameters:
                 self._declare(
                     Symbol(
-                        name=parameter.name,
-                        type_name=str(parameter.type_ref),
-                        is_mutable=False,
-                        location=parameter.location,
+                        parameter.name,
+                        str(parameter.type_ref),
+                        False,
+                        parameter.location,
                     )
                 )
-            self._check_block(function.body)
+            self._check_block(function.body, new_scope=False)
         finally:
             self.current_function = previous
             self.scopes.pop()
 
-    def _check_block(self, block: Block) -> None:
-        for statement in block.statements:
-            if isinstance(statement, LetStatement):
-                value_type = self._check_expression(statement.value)
-                self._declare(
-                    Symbol(
-                        name=statement.name,
-                        type_name=value_type,
-                        is_mutable=statement.is_mutable,
-                        location=statement.location,
-                    )
+    def _check_block(self, block: Block, *, new_scope: bool = True) -> None:
+        if new_scope:
+            self.scopes.append({})
+        try:
+            for statement in block.statements:
+                self._check_statement(statement)
+        finally:
+            if new_scope:
+                self.scopes.pop()
+
+    def _check_statement(self, statement: object) -> None:
+        if isinstance(statement, LetStatement):
+            value_type = self._check_expression(statement.value)
+            self._declare(
+                Symbol(
+                    statement.name,
+                    value_type,
+                    statement.is_mutable,
+                    statement.location,
                 )
-                self.variable_count += 1
-                continue
+            )
+            self.variable_count += 1
+            return
 
-            if isinstance(statement, ReturnStatement):
-                actual = "Void" if statement.value is None else self._check_expression(statement.value)
-                expected = (
-                    str(self.current_function.return_type)
-                    if self.current_function and self.current_function.return_type
-                    else "Void"
+        if isinstance(statement, ReturnStatement):
+            actual = (
+                "Void"
+                if statement.value is None
+                else self._check_expression(statement.value)
+            )
+            expected = (
+                str(self.current_function.return_type)
+                if self.current_function and self.current_function.return_type
+                else "Void"
+            )
+            if not self._is_assignable(actual, expected):
+                raise SemanticError(
+                    "KS1304",
+                    f"Dönüş tipi uyuşmuyor: '{expected}' beklenirken '{actual}' döndürüldü.",
+                    statement.location,
                 )
-                if not self._is_assignable(actual, expected):
-                    raise SemanticError(
-                        "KS1304",
-                        f"Dönüş tipi uyuşmuyor: '{expected}' beklenirken '{actual}' döndürüldü.",
-                        statement.location,
-                    )
-                continue
+            return
 
-            if isinstance(statement, ExpressionStatement):
-                self._check_expression(statement.expression)
-                continue
+        if isinstance(statement, ExpressionStatement):
+            self._check_expression(statement.expression)
+            return
 
-            raise AssertionError(f"Desteklenmeyen statement: {type(statement).__name__}")
+        if isinstance(statement, IfStatement):
+            self._require_bool(
+                self._check_expression(statement.condition),
+                statement.condition.location,
+                "if",
+            )
+            self._check_block(statement.then_branch)
+            if statement.else_branch is not None:
+                self._check_block(statement.else_branch)
+            return
+
+        if isinstance(statement, WhileStatement):
+            self._require_bool(
+                self._check_expression(statement.condition),
+                statement.condition.location,
+                "while",
+            )
+            self._check_block(statement.body)
+            return
+
+        raise AssertionError(f"Desteklenmeyen statement: {type(statement).__name__}")
 
     def _check_expression(self, expression: Expression) -> str | None:
         if isinstance(expression, Literal):
-            if isinstance(expression.value, str):
-                return "String"
             if isinstance(expression.value, bool):
                 return "Bool"
+            if isinstance(expression.value, str):
+                return "String"
             if isinstance(expression.value, int):
                 return "Int"
             if isinstance(expression.value, float):
@@ -173,6 +212,26 @@ class SemanticChecker:
                 return None
             self._raise_unknown_identifier(expression)
 
+        if isinstance(expression, UnaryExpression):
+            operand_type = self._check_expression(expression.operand)
+            if expression.operator == "-" and operand_type in NUMERIC_TYPES:
+                return operand_type
+            raise SemanticError(
+                "KS1305",
+                f"'{expression.operator}' işleci '{operand_type}' tipiyle kullanılamaz.",
+                expression.location,
+            )
+
+        if isinstance(expression, BinaryExpression):
+            left_type = self._check_expression(expression.left)
+            right_type = self._check_expression(expression.right)
+            return self._binary_type(
+                expression.operator,
+                left_type,
+                right_type,
+                expression.location,
+            )
+
         if isinstance(expression, MemberExpression):
             object_type = self._check_expression(expression.object)
             if object_type == "SystemCaps" and expression.member in CAPABILITY_MEMBERS:
@@ -182,14 +241,20 @@ class SemanticChecker:
             return object_type
 
         if isinstance(expression, CallExpression):
-            argument_types = [self._check_expression(item) for item in expression.arguments]
+            argument_types = [
+                self._check_expression(item) for item in expression.arguments
+            ]
 
             if isinstance(expression.callee, Identifier):
                 name = expression.callee.name
                 if name in self.functions:
-                    return self._check_function_call(name, argument_types, expression.location)
+                    return self._check_function_call(
+                        name, argument_types, expression.location
+                    )
                 if name in BUILTIN_CALLS:
-                    return self._check_builtin_call(name, argument_types, expression.location)
+                    return self._check_builtin_call(
+                        name, argument_types, expression.location
+                    )
 
             if isinstance(expression.callee, MemberExpression):
                 receiver_type = self._check_expression(expression.callee.object)
@@ -249,7 +314,9 @@ class SemanticChecker:
                         f"'{symbol.name}' immutable bir değerdir; değiştirmek için 'let mut' kullanın.",
                         expression.location,
                     )
-                if symbol.type_name and not self._is_assignable(value_type, symbol.type_name):
+                if symbol.type_name and not self._is_assignable(
+                    value_type, symbol.type_name
+                ):
                     raise SemanticError(
                         "KS1303",
                         f"'{symbol.name}' için '{symbol.type_name}' beklenirken '{value_type}' atandı.",
@@ -260,6 +327,57 @@ class SemanticChecker:
             return value_type
 
         raise AssertionError(f"Desteklenmeyen expression: {type(expression).__name__}")
+
+    def _binary_type(
+        self,
+        operator: str,
+        left: str | None,
+        right: str | None,
+        location: SourceLocation,
+    ) -> str:
+        if operator in {"+", "-", "*", "/"}:
+            if left in NUMERIC_TYPES and right in NUMERIC_TYPES:
+                if operator == "/" or "Float" in {left, right}:
+                    return "Float"
+                return "Int"
+            raise SemanticError(
+                "KS1305",
+                f"'{operator}' işleci sayısal değerler bekliyor; '{left}' ve '{right}' verildi.",
+                location,
+            )
+
+        if operator in {"<", "<=", ">", ">="}:
+            if left in NUMERIC_TYPES and right in NUMERIC_TYPES:
+                return "Bool"
+            raise SemanticError(
+                "KS1305",
+                f"'{operator}' karşılaştırması sayısal değerler bekliyor.",
+                location,
+            )
+
+        if operator in {"==", "!="}:
+            if self._is_assignable(left, right or "Unknown") or self._is_assignable(
+                right, left or "Unknown"
+            ):
+                return "Bool"
+            raise SemanticError(
+                "KS1305",
+                f"'{left}' ile '{right}' karşılaştırılamaz.",
+                location,
+            )
+
+        raise AssertionError(operator)
+
+    @staticmethod
+    def _require_bool(
+        actual: str | None, location: SourceLocation, owner: str
+    ) -> None:
+        if actual != "Bool":
+            raise SemanticError(
+                "KS1305",
+                f"'{owner}' koşulu Bool olmalıdır; '{actual}' bulundu.",
+                location,
+            )
 
     def _check_function_call(
         self,
@@ -275,8 +393,7 @@ class SemanticChecker:
                 location,
             )
         for index, (actual, parameter) in enumerate(
-            zip(argument_types, function.parameters, strict=True),
-            start=1,
+            zip(argument_types, function.parameters, strict=True), start=1
         ):
             expected = str(parameter.type_ref)
             if not self._is_assignable(actual, expected):
@@ -294,11 +411,14 @@ class SemanticChecker:
         location: SourceLocation,
     ) -> str:
         if name in {"print", "println"}:
+            self._require_arity(name, argument_types, 1, location)
             return "Void"
         if name == "Error":
             self._require_arity(name, argument_types, 1, location)
             if not self._is_assignable(argument_types[0], "String"):
-                raise SemanticError("KS1302", "Error mesajı String olmalıdır.", location)
+                raise SemanticError(
+                    "KS1302", "Error mesajı String olmalıdır.", location
+                )
             return "Error"
         if name == "Some":
             self._require_arity(name, argument_types, 1, location)
@@ -326,10 +446,18 @@ class SemanticChecker:
             )
 
     @staticmethod
-    def _member_call_type(receiver_type: str | None, method_name: str) -> str | None:
+    def _member_call_type(
+        receiver_type: str | None, method_name: str
+    ) -> str | None:
         if method_name == "allow" and receiver_type in CAPABILITY_METHODS:
             return receiver_type
-        if receiver_type == "NetCaps" and method_name in {"get", "post", "put", "delete", "request"}:
+        if receiver_type == "NetCaps" and method_name in {
+            "get",
+            "post",
+            "put",
+            "delete",
+            "request",
+        }:
             return "Result<String, Error>"
         if receiver_type == "DiskCaps" and method_name in {"read", "list"}:
             return "Result<String, Error>"
@@ -388,6 +516,8 @@ class SemanticChecker:
             return True
         if actual == expected:
             return True
+        if actual == "Int" and expected == "Float":
+            return True
 
         union = cls._split_union(expected)
         if len(union) > 1:
@@ -423,8 +553,7 @@ class SemanticChecker:
             return generic[1][0], generic[1][1]
         union = cls._split_union(type_name)
         if len(union) > 1 and "Error" in union:
-            success = next((item for item in union if item != "Error"), None)
-            return success, "Error"
+            return next((item for item in union if item != "Error"), None), "Error"
         return None, None
 
     @staticmethod
@@ -446,8 +575,8 @@ class SemanticChecker:
         parts.append(type_name[start:])
         return parts
 
-    @classmethod
-    def _generic_parts(cls, type_name: str) -> tuple[str, list[str]] | None:
+    @staticmethod
+    def _generic_parts(type_name: str) -> tuple[str, list[str]] | None:
         if "<" not in type_name or not type_name.endswith(">"):
             return None
         base, raw = type_name.split("<", 1)

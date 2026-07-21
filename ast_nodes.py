@@ -48,6 +48,21 @@ class Literal:
 
 
 @dataclass(frozen=True, slots=True)
+class UnaryExpression:
+    operator: str
+    operand: "Expression"
+    location: SourceLocation
+
+
+@dataclass(frozen=True, slots=True)
+class BinaryExpression:
+    left: "Expression"
+    operator: str
+    right: "Expression"
+    location: SourceLocation
+
+
+@dataclass(frozen=True, slots=True)
 class MemberExpression:
     object: "Expression"
     member: str
@@ -78,6 +93,8 @@ class OrReturnExpression:
 Expression: TypeAlias = (
     Identifier
     | Literal
+    | UnaryExpression
+    | BinaryExpression
     | MemberExpression
     | CallExpression
     | AssignmentExpression
@@ -105,12 +122,33 @@ class ExpressionStatement:
     location: SourceLocation
 
 
-Statement: TypeAlias = LetStatement | ReturnStatement | ExpressionStatement
+@dataclass(frozen=True, slots=True)
+class Block:
+    statements: tuple["Statement", ...] = field(default_factory=tuple)
 
 
 @dataclass(frozen=True, slots=True)
-class Block:
-    statements: tuple[Statement, ...] = field(default_factory=tuple)
+class IfStatement:
+    condition: Expression
+    then_branch: Block
+    else_branch: Block | None
+    location: SourceLocation
+
+
+@dataclass(frozen=True, slots=True)
+class WhileStatement:
+    condition: Expression
+    body: Block
+    location: SourceLocation
+
+
+Statement: TypeAlias = (
+    LetStatement
+    | ReturnStatement
+    | ExpressionStatement
+    | IfStatement
+    | WhileStatement
+)
 
 
 @dataclass(frozen=True, slots=True)
