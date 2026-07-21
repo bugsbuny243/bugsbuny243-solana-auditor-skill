@@ -11,6 +11,7 @@ from pathlib import Path
 
 from lexer import LexerError, tokenize
 from parser import ParserError, parse
+from semantic import SemanticError, check as semantic_check
 
 
 def read_source(path: str) -> str:
@@ -34,8 +35,12 @@ def command_ast(path: str) -> int:
 
 def command_check(path: str) -> int:
     program = parse(read_source(path))
-    function_count = len(program.declarations)
-    print(f"KOSCHEI CHECK: PASS ({function_count} fonksiyon)")
+    report = semantic_check(program)
+    print(
+        "KOSCHEI CHECK: PASS "
+        f"({report.functions} fonksiyon, {report.variables} değişken, "
+        f"{report.capability_values} capability değeri)"
+    )
     return 0
 
 
@@ -49,7 +54,7 @@ def build_parser() -> argparse.ArgumentParser:
     for name, help_text in (
         ("tokens", "Lexer tokenlarını yazdırır"),
         ("ast", "Parser AST çıktısını JSON olarak yazdırır"),
-        ("check", "Kaynak kodun sözdizimini doğrular"),
+        ("check", "Sözdizimi, değişmezlik ve capability kurallarını doğrular"),
     ):
         command = subcommands.add_parser(name, help=help_text)
         command.add_argument("source", help=".ks kaynak dosyası")
@@ -67,7 +72,7 @@ def main(argv: list[str] | None = None) -> int:
             return command_ast(args.source)
         if args.command == "check":
             return command_check(args.source)
-    except (OSError, ValueError, LexerError, ParserError) as error:
+    except (OSError, ValueError, LexerError, ParserError, SemanticError) as error:
         print(f"KOSCHEI ERROR: {error}", file=sys.stderr)
         return 1
 
