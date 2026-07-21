@@ -162,7 +162,17 @@ class Parser:
             or_token = self._previous()
             self._consume(TokenType.RETURN, "'or' sonrasında 'return' bekleniyor.")
             error: Expression | None = None
-            if not self._check(TokenType.RIGHT_BRACE) and not self._check(TokenType.SEMICOLON):
+            statement_boundaries = (
+                TokenType.RIGHT_BRACE,
+                TokenType.SEMICOLON,
+                TokenType.LET,
+                TokenType.RETURN,
+                TokenType.IF,
+                TokenType.WHILE,
+                TokenType.ELSE,
+                TokenType.EOF,
+            )
+            if not any(self._check(token_type) for token_type in statement_boundaries):
                 error = self._equality()
             return OrReturnExpression(expression, error, self._location(or_token))
         return expression

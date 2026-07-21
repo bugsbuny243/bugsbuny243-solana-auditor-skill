@@ -1,4 +1,4 @@
-# Koschei Language Core v0.2
+# Koschei Language Core v0.3
 
 > Çökmeyen, Hacklenemeyen, Ölümsüz Dil.
 
@@ -85,16 +85,61 @@ toplama/çıkarma, karşılaştırma ve eşitlik.
 `Int / Int` işlemi de `Float` üretir. `Int`, gerekli olduğunda `Float` beklenen
 bir konuma güvenli biçimde yükseltilebilir; ters dönüşüm otomatik yapılmaz.
 
-## Güvenli tip örnekleri
+## Native Option ve Result ABI
+
+C backend artık kullanılan her somut safe type için ayrı ve deterministik bir ABI
+üretir:
+
+```c
+typedef struct {
+    bool is_some;
+    long long value;
+} ks_option_int;
+
+typedef struct {
+    bool is_ok;
+    union {
+        long long ok;
+        const char *err;
+    } value;
+} ks_result_int_error;
+```
+
+`Some`, `None`, `Ok` ve `Err` değerleri bu yapılara ait `static inline`
+constructor fonksiyonlarına indirilir. `Error` v0.3 ABI içinde UTF-8 C string
+olarak taşınır.
 
 ```ks
-fn maybe_name() -> Option<String> {
-    return Some("Koschei")
+fn maybe_value(enabled: Bool) -> Option<Int> {
+    if enabled {
+        return Some(42)
+    }
+    return None
 }
 
-fn safe_number() -> Result<Int, Error> {
-    return Ok(42)
+fn calculate(enabled: Bool) -> Result<Int, Error> {
+    if enabled {
+        return Ok(7)
+    }
+    return Err(Error("disabled"))
 }
+```
+
+Bir `Result<T, E>` değeri `let` içinde `or return` ile açıldığında C backend
+sonucu bir kez değerlendirir, hata dalında erken dönüş yapar ve başarı değerini
+yeni değişkene bağlar:
+
+```ks
+fn checked(enabled: Bool) -> Result<Int, Error> {
+    let value = calculate(enabled) or return
+    return Ok(value + 1)
+}
+```
+
+Özel hata üretimi de native olarak desteklenir:
+
+```ks
+let value = calculate(enabled) or return Error("custom")
 ```
 
 ## Native control flow örneği
@@ -127,25 +172,33 @@ Koschei control flow: PASS
 
 ```bash
 python koschei.py tokens examples/capability.ks
-python koschei.py ast examples/control_flow.ks
-python koschei.py check examples/control_flow.ks
-python koschei.py emit-c examples/control_flow.ks -o build/control_flow.c
-python koschei.py build examples/control_flow.ks -o build/control_flow
-python koschei.py run examples/control_flow.ks
+python koschei.py ast examples/native_safe_types.ks
+python koschei.py check examples/native_safe_types.ks
+python koschei.py emit-c examples/native_safe_types.ks -o build/native_safe_types.c
+python koschei.py build examples/native_safe_types.ks -o build/native_safe_types
+python koschei.py run examples/native_safe_types.ks
 ```
 
 `check` komutu lexer, parser, tip ve capability güvenlik kontrollerini birlikte çalıştırır.
 
-`emit-c`, `build` ve `run` komutları şimdilik dilin güvenli temel alt kümesini destekler:
+`emit-c`, `build` ve `run` komutlarının v0.3 native kapsamı:
 
-- `Int`, `Float`, `Bool`, `String` ve `Void`
-- Literal veya desteklenen fonksiyon çağrısından tip çıkarımı
+- `Int`, `Float`, `Bool`, `String`, `Error` ve `Void`
 - Aritmetik, karşılaştırma ve tekli eksi
 - `let` değişkenleri ve basit atamalar
 - `if/else` ve `while`
 - `print` ve `println`
 - Fonksiyon çağrıları ve `return`
+- Somut `Option<T>` ve `Result<T, E>` C yapıları
+- `Some`, `None`, `Ok`, `Err` ve `Error` constructor'ları
+- `let value = result or return [error]` biçiminde native Result aktarımı
 
-Capability runtime çağrıları ile `Option`/`Result` değerlerinin C temsili henüz
-code generator kapsamına alınmamıştır. Desteklenmeyen kod sessizce yanlış çıktı
-üretmek yerine `KS5001` veya `KS5002` ile reddedilir.
+Native constructor'ın eksik generic tarafı yalnızca kullanım bağlamından
+belirlenebilir. Örneğin `return Ok(1)` dönüş tipinden `Result<Int, Error>`
+olarak çözülür; bağlamsız `let value = Ok(1)` ise sessiz varsayım yapmak yerine
+`KS5003` ile reddedilir.
+
+Şimdilik native `or return` yalnızca `Result<T, E>` ve `let` bağlamında çalışır.
+`Option<T>` açma, `Result<Void, E>`, pattern `match`, capability runtime ABI ve
+kaynak bölgeleri sonraki aşamalardır. Desteklenmeyen kod yanlış C üretmek yerine
+`KS5001`, `KS5002` veya `KS5003` ile reddedilir.

@@ -35,6 +35,9 @@ jobs:
       - name: Check control flow example
         run: python koschei.py check examples/control_flow.ks
 
+      - name: Check native safe types example
+        run: python koschei.py check examples/native_safe_types.ks
+
       - name: Emit C source
         run: python koschei.py emit-c examples/hello.ks -o build/hello.c
 
@@ -50,3 +53,8 @@ jobs:
         run: |
           output="$(python koschei.py run examples/control_flow.ks)"
           test "$output" = $'3\n2\n1\nKoschei control flow: PASS'
+
+      - name: Run native safe types binary
+        run: |
+          output="$(python koschei.py run examples/native_safe_types.ks)"
+          test "$output" = 'Koschei native safe types: PASS'
