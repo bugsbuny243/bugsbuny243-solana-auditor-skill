@@ -1,4 +1,4 @@
-"""Koschei (.ks) için ilk recursive-descent parser prototipi."""
+"""Koschei (.ks) için recursive-descent parser prototipi."""
 
 from __future__ import annotations
 
@@ -39,10 +39,8 @@ class Parser:
 
     def parse(self) -> Program:
         declarations: list[FunctionDeclaration] = []
-
         while not self._is_at_end():
             declarations.append(self._function_declaration())
-
         return Program(tuple(declarations))
 
     def _function_declaration(self) -> FunctionDeclaration:
@@ -58,11 +56,7 @@ class Parser:
                     break
 
         self._consume(TokenType.RIGHT_PAREN, "Parametrelerden sonra ')' bekleniyordu.")
-
-        return_type: TypeRef | None = None
-        if self._match(TokenType.ARROW):
-            return_type = self._type_ref()
-
+        return_type = self._type_ref() if self._match(TokenType.ARROW) else None
         body = self._block()
         return FunctionDeclaration(
             name=name.value,
@@ -75,26 +69,41 @@ class Parser:
     def _parameter(self) -> Parameter:
         name = self._consume(TokenType.IDENTIFIER, "Parametre adı bekleniyordu.")
         self._consume(TokenType.COLON, "Parametre adından sonra ':' bekleniyordu.")
-        type_ref = self._type_ref()
-        return Parameter(name.value, type_ref, self._location(name))
+        return Parameter(name.value, self._type_ref(), self._location(name))
 
     def _type_ref(self) -> TypeRef:
-        first = self._consume(TokenType.TYPE, "Tip adı bekleniyordu.")
-        names = [first.value]
-
+        first = self._single_type_ref()
+        alternatives = [first]
         while self._match(TokenType.OR):
-            next_type = self._consume(TokenType.TYPE, "'or' sonrasında tip adı bekleniyordu.")
-            names.append(next_type.value)
+            alternatives.append(self._single_type_ref())
+        if len(alternatives) == 1:
+            return first
+        return TypeRef(
+            name="Union",
+            location=first.location,
+            alternatives=tuple(alternatives),
+        )
 
-        return TypeRef(tuple(names), self._location(first))
+    def _single_type_ref(self) -> TypeRef:
+        token = self._consume(TokenType.TYPE, "Tip adı bekleniyordu.")
+        arguments: list[TypeRef] = []
+        if self._match(TokenType.LESS):
+            while True:
+                arguments.append(self._type_ref())
+                if not self._match(TokenType.COMMA):
+                    break
+            self._consume(TokenType.GREATER, "Generic tip sonunda '>' bekleniyordu.")
+        return TypeRef(
+            name=token.value,
+            location=self._location(token),
+            arguments=tuple(arguments),
+        )
 
     def _block(self) -> Block:
         self._consume(TokenType.LEFT_BRACE, "Blok başlangıcı için '{' bekleniyordu.")
         statements: list[Statement] = []
-
         while not self._check(TokenType.RIGHT_BRACE) and not self._is_at_end():
             statements.append(self._statement())
-
         self._consume(TokenType.RIGHT_BRACE, "Blok sonunda '}' bekleniyordu.")
         return Block(tuple(statements))
 
@@ -103,7 +112,6 @@ class Parser:
             return self._let_statement(self._previous())
         if self._match(TokenType.RETURN):
             return self._return_statement(self._previous())
-
         expression = self._expression()
         self._match(TokenType.SEMICOLON)
         return ExpressionStatement(expression, expression.location)
@@ -133,19 +141,16 @@ class Parser:
 
     def _assignment(self) -> Expression:
         expression = self._or_return()
-
         if self._match(TokenType.EQUAL):
             equals = self._previous()
             value = self._assignment()
             if not isinstance(expression, (Identifier, MemberExpression)):
                 self._error(equals, "Geçersiz atama hedefi.")
             return AssignmentExpression(expression, value, self._location(equals))
-
         return expression
 
     def _or_return(self) -> Expression:
         expression = self._call()
-
         if self._match(TokenType.OR):
             or_token = self._previous()
             self._consume(TokenType.RETURN, "İlk sürümde 'or' sonrasında 'return' bekleniyor.")
@@ -153,21 +158,21 @@ class Parser:
             if not self._check(TokenType.RIGHT_BRACE) and not self._check(TokenType.SEMICOLON):
                 error = self._call()
             return OrReturnExpression(expression, error, self._location(or_token))
-
         return expression
 
     def _call(self) -> Expression:
         expression = self._primary()
-
         while True:
             if self._match(TokenType.LEFT_PAREN):
                 expression = self._finish_call(expression, self._previous())
             elif self._match(TokenType.DOT):
-                member = self._consume(TokenType.IDENTIFIER, "'.' sonrasında alan veya metot adı bekleniyordu.")
+                member = self._consume(
+                    TokenType.IDENTIFIER,
+                    "'.' sonrasında alan veya metot adı bekleniyordu.",
+                )
                 expression = MemberExpression(expression, member.value, self._location(member))
             else:
                 break
-
         return expression
 
     def _finish_call(self, callee: Expression, left_paren: Token) -> CallExpression:
@@ -177,7 +182,6 @@ class Parser:
                 arguments.append(self._expression())
                 if not self._match(TokenType.COMMA):
                     break
-
         self._consume(TokenType.RIGHT_PAREN, "Fonksiyon çağrısı sonunda ')' bekleniyordu.")
         return CallExpression(callee, tuple(arguments), self._location(left_paren))
 
@@ -185,16 +189,13 @@ class Parser:
         if self._match(TokenType.STRING, TokenType.NUMBER):
             token = self._previous()
             return Literal(token.value, self._location(token))
-
         if self._match(TokenType.IDENTIFIER, TokenType.TYPE):
             token = self._previous()
             return Identifier(token.value, self._location(token))
-
         if self._match(TokenType.LEFT_PAREN):
             expression = self._expression()
             self._consume(TokenType.RIGHT_PAREN, "İfade sonunda ')' bekleniyordu.")
             return expression
-
         self._error(self._peek(), "İfade bekleniyordu.")
 
     def _match(self, *types: TokenType) -> bool:
