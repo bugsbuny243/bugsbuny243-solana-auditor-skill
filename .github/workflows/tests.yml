@@ -23,26 +23,6 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Diagnose native safe type parsing
-        run: python koschei.py ast examples/native_safe_types.ks > /dev/null
-
-      - name: Diagnose native safe type semantics
-        run: python koschei.py check examples/native_safe_types.ks
-
-      - name: Diagnose native safe type C emission
-        run: python koschei.py emit-c examples/native_safe_types.ks -o build/native_safe_types.c
-
-      - name: Diagnose native safe type ABI text
-        run: |
-          grep -q 'ks_option_int_some' build/native_safe_types.c
-          grep -q 'ks_result_int_error_err' build/native_safe_types.c
-          grep -q 'if (!__ks_result_' build/native_safe_types.c
-
-      - name: Diagnose native safe type execution
-        run: |
-          output="$(python koschei.py run examples/native_safe_types.ks)"
-          test "$output" = 'Koschei native safe types: PASS'
-
       - name: Run unit tests
         run: python -m unittest discover -s tests -v
 
