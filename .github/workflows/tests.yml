@@ -23,6 +23,21 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Diagnose safe type ABI emission
+        run: PYTHONPATH=. python tests/test_native_safe_types.py NativeSafeTypesTests.test_emits_option_and_result_abi
+
+      - name: Diagnose or-return lowering
+        run: PYTHONPATH=. python tests/test_native_safe_types.py NativeSafeTypesTests.test_or_return_lowers_to_early_result_propagation
+
+      - name: Diagnose constructor context error
+        run: PYTHONPATH=. python tests/test_native_safe_types.py NativeSafeTypesTests.test_contextless_result_constructor_is_rejected
+
+      - name: Diagnose Bool condition C formatting
+        run: PYTHONPATH=. python tests/test_native_safe_types.py NativeSafeTypesTests.test_identifier_conditions_are_parenthesized_in_c
+
+      - name: Diagnose native safe type execution
+        run: PYTHONPATH=. python tests/test_native_safe_types.py NativeSafeTypesTests.test_native_safe_type_program_compiles_and_runs
+
       - name: Run unit tests
         run: python -m unittest discover -s tests -v
 
