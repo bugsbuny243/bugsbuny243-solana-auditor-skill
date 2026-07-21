@@ -23,20 +23,25 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Diagnose safe type ABI emission
-        run: PYTHONPATH=. python tests/test_native_safe_types.py NativeSafeTypesTests.test_emits_option_and_result_abi
+      - name: Diagnose native safe type parsing
+        run: python koschei.py ast examples/native_safe_types.ks > /dev/null
 
-      - name: Diagnose or-return lowering
-        run: PYTHONPATH=. python tests/test_native_safe_types.py NativeSafeTypesTests.test_or_return_lowers_to_early_result_propagation
+      - name: Diagnose native safe type semantics
+        run: python koschei.py check examples/native_safe_types.ks
 
-      - name: Diagnose constructor context error
-        run: PYTHONPATH=. python tests/test_native_safe_types.py NativeSafeTypesTests.test_contextless_result_constructor_is_rejected
+      - name: Diagnose native safe type C emission
+        run: python koschei.py emit-c examples/native_safe_types.ks -o build/native_safe_types.c
 
-      - name: Diagnose Bool condition C formatting
-        run: PYTHONPATH=. python tests/test_native_safe_types.py NativeSafeTypesTests.test_identifier_conditions_are_parenthesized_in_c
+      - name: Diagnose native safe type ABI text
+        run: |
+          grep -q 'ks_option_int_some' build/native_safe_types.c
+          grep -q 'ks_result_int_error_err' build/native_safe_types.c
+          grep -q 'if (!__ks_result_' build/native_safe_types.c
 
       - name: Diagnose native safe type execution
-        run: PYTHONPATH=. python tests/test_native_safe_types.py NativeSafeTypesTests.test_native_safe_type_program_compiles_and_runs
+        run: |
+          output="$(python koschei.py run examples/native_safe_types.ks)"
+          test "$output" = 'Koschei native safe types: PASS'
 
       - name: Run unit tests
         run: python -m unittest discover -s tests -v
