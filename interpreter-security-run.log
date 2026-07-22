@@ -1,0 +1,510 @@
+run_id=29945921916
+status=completed
+conclusion=failure
+
+build	Set up job	﻿2026-07-22T18:16:03.5352332Z Current runner version: '2.335.1'
+build	Set up job	2026-07-22T18:16:03.5367525Z ##[group]Runner Image Provisioner
+build	Set up job	2026-07-22T18:16:03.5368044Z Hosted Compute Agent
+build	Set up job	2026-07-22T18:16:03.5368384Z Version: 20260707.563
+build	Set up job	2026-07-22T18:16:03.5368819Z Commit: 02667638d2b423fbc733a8e32a88b44996a3ba6e
+build	Set up job	2026-07-22T18:16:03.5369229Z Build Date: 2026-07-07T19:33:50Z
+build	Set up job	2026-07-22T18:16:03.5369774Z Worker ID: {00213d05-dafe-4660-9dc2-b907bc03ec55}
+build	Set up job	2026-07-22T18:16:03.5370231Z Azure Region: westus3
+build	Set up job	2026-07-22T18:16:03.5370561Z ##[endgroup]
+build	Set up job	2026-07-22T18:16:03.5371355Z ##[group]Operating System
+build	Set up job	2026-07-22T18:16:03.5371710Z Ubuntu
+build	Set up job	2026-07-22T18:16:03.5372012Z 24.04.4
+build	Set up job	2026-07-22T18:16:03.5372345Z LTS
+build	Set up job	2026-07-22T18:16:03.5372645Z ##[endgroup]
+build	Set up job	2026-07-22T18:16:03.5372955Z ##[group]Runner Image
+build	Set up job	2026-07-22T18:16:03.5373393Z Image: ubuntu-24.04
+build	Set up job	2026-07-22T18:16:03.5373716Z Version: 20260720.247.2
+build	Set up job	2026-07-22T18:16:03.5374322Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20260720.247/images/ubuntu/Ubuntu2404-Readme.md
+build	Set up job	2026-07-22T18:16:03.5375247Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20260720.247
+build	Set up job	2026-07-22T18:16:03.5375806Z ##[endgroup]
+build	Set up job	2026-07-22T18:16:03.5376412Z ##[group]GITHUB_TOKEN Permissions
+build	Set up job	2026-07-22T18:16:03.5377514Z Contents: write
+build	Set up job	2026-07-22T18:16:03.5377846Z Metadata: read
+build	Set up job	2026-07-22T18:16:03.5378233Z ##[endgroup]
+build	Set up job	2026-07-22T18:16:03.5379378Z Secret source: Actions
+build	Set up job	2026-07-22T18:16:03.5379956Z Prepare workflow directory
+build	Set up job	2026-07-22T18:16:03.5587641Z Prepare all required actions
+build	Set up job	2026-07-22T18:16:03.5611158Z Getting action download info
+build	Set up job	2026-07-22T18:16:03.8485260Z Download action repository 'actions/checkout@v4' (SHA:11d5960a326750d5838078e36cf38b85af677262)
+build	Set up job	2026-07-22T18:16:04.6093310Z Download action repository 'actions/setup-python@v5' (SHA:a26af69be951a213d495a4c3e4e4022e16d87065)
+build	Set up job	2026-07-22T18:16:04.7488910Z Complete job name: build
+build	Checkout runner branch	﻿2026-07-22T18:16:04.8002709Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+build	Checkout runner branch	2026-07-22T18:16:04.8009012Z ##[group]Run actions/checkout@v4
+build	Checkout runner branch	2026-07-22T18:16:04.8009822Z with:
+build	Checkout runner branch	2026-07-22T18:16:04.8010291Z   fetch-depth: 0
+build	Checkout runner branch	2026-07-22T18:16:04.8010830Z   repository: bugsbuny243/koschei-lang
+build	Checkout runner branch	2026-07-22T18:16:04.8016062Z   token: ***
+build	Checkout runner branch	2026-07-22T18:16:04.8016549Z   ssh-strict: true
+build	Checkout runner branch	2026-07-22T18:16:04.8017053Z   ssh-user: git
+build	Checkout runner branch	2026-07-22T18:16:04.8017557Z   persist-credentials: true
+build	Checkout runner branch	2026-07-22T18:16:04.8018122Z   clean: true
+build	Checkout runner branch	2026-07-22T18:16:04.8018631Z   sparse-checkout-cone-mode: true
+build	Checkout runner branch	2026-07-22T18:16:04.8019252Z   fetch-tags: false
+build	Checkout runner branch	2026-07-22T18:16:04.8019840Z   show-progress: true
+build	Checkout runner branch	2026-07-22T18:16:04.8020359Z   lfs: false
+build	Checkout runner branch	2026-07-22T18:16:04.8020832Z   submodules: false
+build	Checkout runner branch	2026-07-22T18:16:04.8021384Z   set-safe-directory: true
+build	Checkout runner branch	2026-07-22T18:16:04.8021963Z   allow-unsafe-pr-checkout: false
+build	Checkout runner branch	2026-07-22T18:16:04.8022630Z ##[endgroup]
+build	Checkout runner branch	2026-07-22T18:16:04.8629977Z Syncing repository: bugsbuny243/koschei-lang
+build	Checkout runner branch	2026-07-22T18:16:04.8631684Z ##[group]Getting Git version info
+build	Checkout runner branch	2026-07-22T18:16:04.8632519Z Working directory is '/home/runner/work/koschei-lang/koschei-lang'
+build	Checkout runner branch	2026-07-22T18:16:04.8633676Z [command]/usr/bin/git version
+build	Checkout runner branch	2026-07-22T18:16:04.8651252Z git version 2.54.0
+build	Checkout runner branch	2026-07-22T18:16:04.8668654Z ##[endgroup]
+build	Checkout runner branch	2026-07-22T18:16:04.8684537Z Temporarily overriding HOME='/home/runner/work/_temp/371495dc-ddae-4fec-8880-9d1dde26c1e1' before making global git config changes
+build	Checkout runner branch	2026-07-22T18:16:04.8687066Z Adding repository directory to the temporary git global config as a safe directory
+build	Checkout runner branch	2026-07-22T18:16:04.8689137Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/koschei-lang/koschei-lang
+build	Checkout runner branch	2026-07-22T18:16:04.8716330Z Deleting the contents of '/home/runner/work/koschei-lang/koschei-lang'
+build	Checkout runner branch	2026-07-22T18:16:04.8719003Z ##[group]Initializing the repository
+build	Checkout runner branch	2026-07-22T18:16:04.8722165Z [command]/usr/bin/git init /home/runner/work/koschei-lang/koschei-lang
+build	Checkout runner branch	2026-07-22T18:16:04.8804855Z hint: Using 'master' as the name for the initial branch. This default branch name
+build	Checkout runner branch	2026-07-22T18:16:04.8806972Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+build	Checkout runner branch	2026-07-22T18:16:04.8816849Z hint: to use in all of your new repositories, which will suppress this warning,
+build	Checkout runner branch	2026-07-22T18:16:04.8818442Z hint: call:
+build	Checkout runner branch	2026-07-22T18:16:04.8819327Z hint:
+build	Checkout runner branch	2026-07-22T18:16:04.8820636Z hint: 	git config --global init.defaultBranch <name>
+build	Checkout runner branch	2026-07-22T18:16:04.8822027Z hint:
+build	Checkout runner branch	2026-07-22T18:16:04.8823231Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+build	Checkout runner branch	2026-07-22T18:16:04.8825014Z hint: 'development'. The just-created branch can be renamed via this command:
+build	Checkout runner branch	2026-07-22T18:16:04.8826492Z hint:
+build	Checkout runner branch	2026-07-22T18:16:04.8827359Z hint: 	git branch -m <name>
+build	Checkout runner branch	2026-07-22T18:16:04.8828355Z hint:
+build	Checkout runner branch	2026-07-22T18:16:04.8829721Z hint: Disable this message with "git config set advice.defaultBranchName false"
+build	Checkout runner branch	2026-07-22T18:16:04.8831789Z Initialized empty Git repository in /home/runner/work/koschei-lang/koschei-lang/.git/
+build	Checkout runner branch	2026-07-22T18:16:04.8835355Z [command]/usr/bin/git remote add origin https://github.com/bugsbuny243/koschei-lang
+build	Checkout runner branch	2026-07-22T18:16:04.9012552Z ##[endgroup]
+build	Checkout runner branch	2026-07-22T18:16:04.9013896Z ##[group]Disabling automatic garbage collection
+build	Checkout runner branch	2026-07-22T18:16:04.9015099Z [command]/usr/bin/git config --local gc.auto 0
+build	Checkout runner branch	2026-07-22T18:16:04.9043269Z ##[endgroup]
+build	Checkout runner branch	2026-07-22T18:16:04.9044117Z ##[group]Setting up auth
+build	Checkout runner branch	2026-07-22T18:16:04.9048593Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+build	Checkout runner branch	2026-07-22T18:16:04.9076125Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+build	Checkout runner branch	2026-07-22T18:16:04.9299739Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+build	Checkout runner branch	2026-07-22T18:16:04.9326717Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+build	Checkout runner branch	2026-07-22T18:16:04.9490204Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+build	Checkout runner branch	2026-07-22T18:16:04.9516056Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+build	Checkout runner branch	2026-07-22T18:16:04.9679596Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+build	Checkout runner branch	2026-07-22T18:16:04.9707858Z ##[endgroup]
+build	Checkout runner branch	2026-07-22T18:16:04.9708815Z ##[group]Fetching the repository
+build	Checkout runner branch	2026-07-22T18:16:04.9714606Z [command]/usr/bin/git -c protocol.version=2 fetch --prune --no-recurse-submodules origin +refs/heads/*:refs/remotes/origin/* +refs/tags/*:refs/tags/* +5a391300fd890cedca5f9dc556a56b1b6be586c7:refs/remotes/pull/10/merge
+build	Checkout runner branch	2026-07-22T18:16:05.6752231Z From https://github.com/bugsbuny243/koschei-lang
+build	Checkout runner branch	2026-07-22T18:16:05.6754194Z  * [new branch]      agent/bootstrap-koschei-compiler         -> origin/agent/bootstrap-koschei-compiler
+build	Checkout runner branch	2026-07-22T18:16:05.6756288Z  * [new branch]      agent/control-flow-expressions           -> origin/agent/control-flow-expressions
+build	Checkout runner branch	2026-07-22T18:16:05.6758247Z  * [new branch]      agent/interpreter-red-team               -> origin/agent/interpreter-red-team
+build	Checkout runner branch	2026-07-22T18:16:05.6760362Z  * [new branch]      agent/interpreter-runtime-v0.1           -> origin/agent/interpreter-runtime-v0.1
+build	Checkout runner branch	2026-07-22T18:16:05.6762373Z  * [new branch]      agent/interpreter-security-v0.1.1        -> origin/agent/interpreter-security-v0.1.1
+build	Checkout runner branch	2026-07-22T18:16:05.6764543Z  * [new branch]      agent/interpreter-security-v0.1.1-direct -> origin/agent/interpreter-security-v0.1.1-direct
+build	Checkout runner branch	2026-07-22T18:16:05.6766237Z  * [new branch]      agent/interpreter-security-v0.1.1-report -> origin/agent/interpreter-security-v0.1.1-report
+build	Checkout runner branch	2026-07-22T18:16:05.6767833Z  * [new branch]      agent/interpreter-security-v0.1.1-runner -> origin/agent/interpreter-security-v0.1.1-runner
+build	Checkout runner branch	2026-07-22T18:16:05.6769272Z  * [new branch]      agent/native-match                       -> origin/agent/native-match
+build	Checkout runner branch	2026-07-22T18:16:05.6770510Z  * [new branch]      agent/native-safe-types                  -> origin/agent/native-safe-types
+build	Checkout runner branch	2026-07-22T18:16:05.6771686Z  * [new branch]      agent/remove-solana-legacy               -> origin/agent/remove-solana-legacy
+build	Checkout runner branch	2026-07-22T18:16:05.6772886Z  * [new branch]      agent/safe-types-c-backend               -> origin/agent/safe-types-c-backend
+build	Checkout runner branch	2026-07-22T18:16:05.6774181Z  * [new branch]      agent/verbatim-security-v0.1.1-report    -> origin/agent/verbatim-security-v0.1.1-report
+build	Checkout runner branch	2026-07-22T18:16:05.6775385Z  * [new branch]      codex-c-backend                          -> origin/codex-c-backend
+build	Checkout runner branch	2026-07-22T18:16:05.6776318Z  * [new branch]      main                                     -> origin/main
+build	Checkout runner branch	2026-07-22T18:16:05.6777229Z  * [new ref]         5a391300fd890cedca5f9dc556a56b1b6be586c7 -> pull/10/merge
+build	Checkout runner branch	2026-07-22T18:16:05.6800823Z ##[endgroup]
+build	Checkout runner branch	2026-07-22T18:16:05.6802448Z ##[group]Determining the checkout info
+build	Checkout runner branch	2026-07-22T18:16:05.6804006Z ##[endgroup]
+build	Checkout runner branch	2026-07-22T18:16:05.6805987Z [command]/usr/bin/git sparse-checkout disable
+build	Checkout runner branch	2026-07-22T18:16:05.6838834Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+build	Checkout runner branch	2026-07-22T18:16:05.6862498Z ##[group]Checking out the ref
+build	Checkout runner branch	2026-07-22T18:16:05.6864919Z [command]/usr/bin/git checkout --progress --force refs/remotes/pull/10/merge
+build	Checkout runner branch	2026-07-22T18:16:05.6908768Z Note: switching to 'refs/remotes/pull/10/merge'.
+build	Checkout runner branch	2026-07-22T18:16:05.6909661Z 
+build	Checkout runner branch	2026-07-22T18:16:05.6910255Z You are in 'detached HEAD' state. You can look around, make experimental
+build	Checkout runner branch	2026-07-22T18:16:05.6911704Z changes and commit them, and you can discard any commits you make in this
+build	Checkout runner branch	2026-07-22T18:16:05.6913142Z state without impacting any branches by switching back to a branch.
+build	Checkout runner branch	2026-07-22T18:16:05.6913857Z 
+build	Checkout runner branch	2026-07-22T18:16:05.6914243Z If you want to create a new branch to retain commits you create, you may
+build	Checkout runner branch	2026-07-22T18:16:05.6915382Z do so (now or later) by using -c with the switch command. Example:
+build	Checkout runner branch	2026-07-22T18:16:05.6915911Z 
+build	Checkout runner branch	2026-07-22T18:16:05.6916196Z   git switch -c <new-branch-name>
+build	Checkout runner branch	2026-07-22T18:16:05.6916561Z 
+build	Checkout runner branch	2026-07-22T18:16:05.6916865Z Or undo this operation with:
+build	Checkout runner branch	2026-07-22T18:16:05.6917267Z 
+build	Checkout runner branch	2026-07-22T18:16:05.6917463Z   git switch -
+build	Checkout runner branch	2026-07-22T18:16:05.6917725Z 
+build	Checkout runner branch	2026-07-22T18:16:05.6918150Z Turn off this advice by setting config variable advice.detachedHead to false
+build	Checkout runner branch	2026-07-22T18:16:05.6918758Z 
+build	Checkout runner branch	2026-07-22T18:16:05.6919429Z HEAD is now at 5a39130 Merge 2a834c1ad6587cfa145c2f1fedd7eeb36a6c64df into f50308aceea1894dfb405bb67ab133f30a03d891
+build	Checkout runner branch	2026-07-22T18:16:05.6921571Z ##[endgroup]
+build	Checkout runner branch	2026-07-22T18:16:05.6945333Z [command]/usr/bin/git log -1 --format=%H
+build	Checkout runner branch	2026-07-22T18:16:05.6967140Z 5a391300fd890cedca5f9dc556a56b1b6be586c7
+build	Preserve direct editor	﻿2026-07-22T18:16:05.7124832Z ##[group]Run cp .github/scripts/apply_interpreter_security_v011.py /tmp/apply_interpreter_security_v011.py
+build	Preserve direct editor	2026-07-22T18:16:05.7126310Z ^[[36;1mcp .github/scripts/apply_interpreter_security_v011.py /tmp/apply_interpreter_security_v011.py^[[0m
+build	Preserve direct editor	2026-07-22T18:16:05.7127672Z ^[[36;1mcp .github/scripts/fix_interpreter_security_editor.py /tmp/fix_interpreter_security_editor.py^[[0m
+build	Preserve direct editor	2026-07-22T18:16:05.7128725Z ^[[36;1mpython /tmp/fix_interpreter_security_editor.py^[[0m
+build	Preserve direct editor	2026-07-22T18:16:05.7167180Z shell: /usr/bin/bash -e {0}
+build	Preserve direct editor	2026-07-22T18:16:05.7167718Z ##[endgroup]
+build	Set up Python 3.12	﻿2026-07-22T18:16:05.7573240Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+build	Set up Python 3.12	2026-07-22T18:16:05.7575714Z ##[group]Run actions/setup-python@v5
+build	Set up Python 3.12	2026-07-22T18:16:05.7576280Z with:
+build	Set up Python 3.12	2026-07-22T18:16:05.7576718Z   python-version: 3.12
+build	Set up Python 3.12	2026-07-22T18:16:05.7577206Z   check-latest: false
+build	Set up Python 3.12	2026-07-22T18:16:05.7582096Z   token: ***
+build	Set up Python 3.12	2026-07-22T18:16:05.7582568Z   update-environment: true
+build	Set up Python 3.12	2026-07-22T18:16:05.7583094Z   allow-prereleases: false
+build	Set up Python 3.12	2026-07-22T18:16:05.7583614Z   freethreaded: false
+build	Set up Python 3.12	2026-07-22T18:16:05.7584090Z ##[endgroup]
+build	Set up Python 3.12	2026-07-22T18:16:05.8380846Z ##[group]Installed versions
+build	Set up Python 3.12	2026-07-22T18:16:05.8445909Z (node:2052) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+build	Set up Python 3.12	2026-07-22T18:16:05.8447461Z (Use `node --trace-deprecation ...` to show where the warning was created)
+build	Set up Python 3.12	2026-07-22T18:16:05.8448796Z Successfully set up CPython (3.12.13)
+build	Set up Python 3.12	2026-07-22T18:16:05.8450086Z ##[endgroup]
+build	Reset to current main	﻿2026-07-22T18:16:05.8599071Z ##[group]Run git fetch origin main
+build	Reset to current main	2026-07-22T18:16:05.8600313Z ^[[36;1mgit fetch origin main^[[0m
+build	Reset to current main	2026-07-22T18:16:05.8601093Z ^[[36;1mgit switch -C agent/interpreter-security-v0.1.1-direct origin/main^[[0m
+build	Reset to current main	2026-07-22T18:16:05.8659750Z shell: /usr/bin/bash -e {0}
+build	Reset to current main	2026-07-22T18:16:05.8660569Z env:
+build	Reset to current main	2026-07-22T18:16:05.8661360Z   pythonLocation: /opt/hostedtoolcache/Python/3.12.13/x64
+build	Reset to current main	2026-07-22T18:16:05.8662683Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.12.13/x64/lib/pkgconfig
+build	Reset to current main	2026-07-22T18:16:05.8663726Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.13/x64
+build	Reset to current main	2026-07-22T18:16:05.8664528Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.13/x64
+build	Reset to current main	2026-07-22T18:16:05.8665318Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.13/x64
+build	Reset to current main	2026-07-22T18:16:05.8666240Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.12.13/x64/lib
+build	Reset to current main	2026-07-22T18:16:05.8666997Z ##[endgroup]
+build	Reset to current main	2026-07-22T18:16:06.2296358Z From https://github.com/bugsbuny243/koschei-lang
+build	Reset to current main	2026-07-22T18:16:06.2297388Z  * branch            main       -> FETCH_HEAD
+build	Reset to current main	2026-07-22T18:16:06.2356691Z Previous HEAD position was 5a39130 Merge 2a834c1ad6587cfa145c2f1fedd7eeb36a6c64df into f50308aceea1894dfb405bb67ab133f30a03d891
+build	Reset to current main	2026-07-22T18:16:06.2364615Z Switched to a new branch 'agent/interpreter-security-v0.1.1-direct'
+build	Reset to current main	2026-07-22T18:16:06.2366555Z branch 'agent/interpreter-security-v0.1.1-direct' set up to track 'origin/main'.
+build	Apply findings sequentially and validate	﻿2026-07-22T18:16:06.2394604Z ##[group]Run python /tmp/apply_interpreter_security_v011.py
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.2394884Z ^[[36;1mpython /tmp/apply_interpreter_security_v011.py^[[0m
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.2432521Z shell: /usr/bin/bash -e {0}
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.2432683Z env:
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.2432856Z   pythonLocation: /opt/hostedtoolcache/Python/3.12.13/x64
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.2433114Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.12.13/x64/lib/pkgconfig
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.2433371Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.13/x64
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.2433599Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.13/x64
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.2433826Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.13/x64
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.2434061Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.12.13/x64/lib
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.2434262Z ##[endgroup]
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.2947081Z 
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.2947685Z === BULGU 3 / KS3105: çağrı derinliği sınırı ===
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.2951698Z 
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.2951874Z $ python -m unittest discover -s tests -v
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.4207855Z test_check_accepts_valid_koschei_file (test_cli.CliTests.test_check_accepts_valid_koschei_file) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.4215157Z test_check_rejects_non_koschei_extension (test_cli.CliTests.test_check_rejects_non_koschei_extension) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.4217865Z test_arithmetic_and_while_countdown (test_interpreter.InterpreterTests.test_arithmetic_and_while_countdown) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.4220954Z test_disk_read_caps_outside_write_returns_ks3402 (test_interpreter.InterpreterTests.test_disk_read_caps_outside_write_returns_ks3402) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.4222599Z test_disk_read_caps_write_returns_ks3404_value (test_interpreter.InterpreterTests.test_disk_read_caps_write_returns_ks3404_value) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.4230600Z test_disk_read_scope_and_parent_escape (test_interpreter.InterpreterTests.test_disk_read_scope_and_parent_escape) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.4234482Z test_disk_scope_error_contains_ks3402_and_rejects_symlink (test_interpreter.InterpreterTests.test_disk_scope_error_contains_ks3402_and_rejects_symlink) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.4235834Z test_division_by_zero_can_be_handled (test_interpreter.InterpreterTests.test_division_by_zero_can_be_handled) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.4237858Z test_env_allow_and_get (test_interpreter.InterpreterTests.test_env_allow_and_get) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.4239851Z test_or_block_runs_and_returns_last_expression (test_interpreter.InterpreterTests.test_or_block_runs_and_returns_last_expression) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.4241155Z test_or_default_uses_fallback (test_interpreter.InterpreterTests.test_or_default_uses_fallback) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.4243197Z test_or_return_propagates_error_to_caller (test_interpreter.InterpreterTests.test_or_return_propagates_error_to_caller) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.4244404Z test_println_and_string_interpolation (test_interpreter.InterpreterTests.test_println_and_string_interpolation) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.4255211Z test_recursion_limit_raises_ks3105_without_python_error (test_interpreter.InterpreterTests.test_recursion_limit_raises_ks3105_without_python_error) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.4257613Z test_rejected_network_origin_does_not_make_http_request (test_interpreter.InterpreterTests.test_rejected_network_origin_does_not_make_http_request) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.4258463Z test_unhandled_error_returns_exit_code_one (test_interpreter.InterpreterTests.test_unhandled_error_returns_exit_code_one) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.4259310Z test_comment_content_does_not_become_tokens (test_lexer.LexerTests.test_comment_content_does_not_become_tokens) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.4260291Z test_control_flow_keywords_and_bool_literals (test_lexer.LexerTests.test_control_flow_keywords_and_bool_literals) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.4261147Z test_empty_interpolation_is_rejected (test_lexer.LexerTests.test_empty_interpolation_is_rejected) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.4261854Z test_escaped_braces_do_not_interpolate (test_lexer.LexerTests.test_escaped_braces_do_not_interpolate) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.4262884Z test_interpolated_string_produces_segments (test_lexer.LexerTests.test_interpolated_string_produces_segments) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.4270392Z test_invalid_interpolation_expression_is_rejected (test_lexer.LexerTests.test_invalid_interpolation_expression_is_rejected) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.4271211Z test_keywords_types_symbols_and_values (test_lexer.LexerTests.test_keywords_types_symbols_and_values) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.4271898Z test_logical_and_bang_operators (test_lexer.LexerTests.test_logical_and_bang_operators) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.4272525Z test_plain_string_stays_plain (test_lexer.LexerTests.test_plain_string_stays_plain) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.4273226Z test_unterminated_string_reports_location (test_lexer.LexerTests.test_unterminated_string_reports_location) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.4274002Z test_bare_or_return_before_next_statement (test_parser.ParserTests.test_bare_or_return_before_next_statement) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.4274713Z test_binary_operator_precedence (test_parser.ParserTests.test_binary_operator_precedence) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.4275408Z test_comparison_and_logical_operators (test_parser.ParserTests.test_comparison_and_logical_operators) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.4276048Z test_if_else_if_else_chain (test_parser.ParserTests.test_if_else_if_else_chain) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.4276752Z test_interpolated_string_builds_member_chain (test_parser.ParserTests.test_interpolated_string_builds_member_chain) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.4277442Z test_or_block_expression (test_parser.ParserTests.test_or_block_expression) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.4278015Z test_or_default_expression (test_parser.ParserTests.test_or_default_expression) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.4278816Z test_parses_functions_parameters_and_union_return_type (test_parser.ParserTests.test_parses_functions_parameters_and_union_return_type) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.4279831Z test_parses_or_return_and_mutability_metadata (test_parser.ParserTests.test_parses_or_return_and_mutability_metadata) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.4280760Z test_reports_missing_closing_brace (test_parser.ParserTests.test_reports_missing_closing_brace) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.4281345Z test_unary_minus (test_parser.ParserTests.test_unary_minus) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.4281843Z test_while_statement (test_parser.ParserTests.test_while_statement) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.4282547Z test_accepts_assignment_to_mutable_variable (test_semantic.SemanticTests.test_accepts_assignment_to_mutable_variable) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.4283386Z test_accepts_network_access_with_net_caps (test_semantic.SemanticTests.test_accepts_network_access_with_net_caps) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.4284211Z test_arithmetic_type_mismatch_is_rejected (test_semantic.SemanticTests.test_arithmetic_type_mismatch_is_rejected) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.4284979Z test_block_scoped_let_does_not_leak (test_semantic.SemanticTests.test_block_scoped_let_does_not_leak) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.4285679Z test_if_condition_must_be_bool (test_semantic.SemanticTests.test_if_condition_must_be_bool) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.4286413Z test_interpolation_checks_identifiers (test_semantic.SemanticTests.test_interpolation_checks_identifiers) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.4287266Z test_interpolation_with_known_member_path_passes (test_semantic.SemanticTests.test_interpolation_with_known_member_path_passes) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.4288154Z test_narrowed_capability_cannot_be_rewidened (test_semantic.SemanticTests.test_narrowed_capability_cannot_be_rewidened) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.4290747Z test_narrowed_capability_passed_to_function_keeps_permissions (test_semantic.SemanticTests.test_narrowed_capability_passed_to_function_keeps_permissions) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.4293082Z test_or_else_and_or_block_pass (test_semantic.SemanticTests.test_or_else_and_or_block_pass) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.4295028Z test_read_only_capability_cannot_write (test_semantic.SemanticTests.test_read_only_capability_cannot_write) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.4296189Z test_rejects_assignment_to_immutable_variable (test_semantic.SemanticTests.test_rejects_assignment_to_immutable_variable) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.4297351Z test_rejects_network_access_without_net_caps (test_semantic.SemanticTests.test_rejects_network_access_without_net_caps) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.4299008Z test_root_capability_cannot_do_io_directly (test_semantic.SemanticTests.test_root_capability_cannot_do_io_directly) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.4300748Z test_system_caps_can_create_restricted_net_caps (test_semantic.SemanticTests.test_system_caps_can_create_restricted_net_caps) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.4301774Z test_system_caps_has_no_direct_operations (test_semantic.SemanticTests.test_system_caps_has_no_direct_operations) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.4303181Z test_while_with_comparison_condition_passes (test_semantic.SemanticTests.test_while_with_comparison_condition_passes) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.4303626Z 
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.4303810Z ----------------------------------------------------------------------
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.4304168Z Ran 55 tests in 0.011s
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.4304307Z 
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.4304387Z OK
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.4373142Z 
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.4373583Z === BULGU 2 / KS1401: ele alınmayan hata değeri ===
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.4378218Z 
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.4378358Z $ python -m unittest discover -s tests -v
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.5003100Z test_check_accepts_valid_koschei_file (test_cli.CliTests.test_check_accepts_valid_koschei_file) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.5009644Z test_check_rejects_non_koschei_extension (test_cli.CliTests.test_check_rejects_non_koschei_extension) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.5011992Z test_arithmetic_and_while_countdown (test_interpreter.InterpreterTests.test_arithmetic_and_while_countdown) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.5014558Z test_disk_read_caps_outside_write_returns_ks3402 (test_interpreter.InterpreterTests.test_disk_read_caps_outside_write_returns_ks3402) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.5015987Z test_disk_read_caps_write_returns_ks3404_value (test_interpreter.InterpreterTests.test_disk_read_caps_write_returns_ks3404_value) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.5023501Z test_disk_read_scope_and_parent_escape (test_interpreter.InterpreterTests.test_disk_read_scope_and_parent_escape) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.5026876Z test_disk_scope_error_contains_ks3402_and_rejects_symlink (test_interpreter.InterpreterTests.test_disk_scope_error_contains_ks3402_and_rejects_symlink) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.5027906Z test_division_by_zero_can_be_handled (test_interpreter.InterpreterTests.test_division_by_zero_can_be_handled) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.5029897Z test_env_allow_and_get (test_interpreter.InterpreterTests.test_env_allow_and_get) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.5031492Z test_or_block_runs_and_returns_last_expression (test_interpreter.InterpreterTests.test_or_block_runs_and_returns_last_expression) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.5032413Z test_or_default_uses_fallback (test_interpreter.InterpreterTests.test_or_default_uses_fallback) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.5034306Z test_or_return_propagates_error_to_caller (test_interpreter.InterpreterTests.test_or_return_propagates_error_to_caller) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.5035201Z test_println_and_string_interpolation (test_interpreter.InterpreterTests.test_println_and_string_interpolation) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.5046227Z test_recursion_limit_raises_ks3105_without_python_error (test_interpreter.InterpreterTests.test_recursion_limit_raises_ks3105_without_python_error) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.5048329Z test_rejected_network_origin_does_not_make_http_request (test_interpreter.InterpreterTests.test_rejected_network_origin_does_not_make_http_request) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.5049161Z test_unhandled_error_returns_exit_code_one (test_interpreter.InterpreterTests.test_unhandled_error_returns_exit_code_one) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.5049982Z test_comment_content_does_not_become_tokens (test_lexer.LexerTests.test_comment_content_does_not_become_tokens) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.5050685Z test_control_flow_keywords_and_bool_literals (test_lexer.LexerTests.test_control_flow_keywords_and_bool_literals) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.5051492Z test_empty_interpolation_is_rejected (test_lexer.LexerTests.test_empty_interpolation_is_rejected) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.5052128Z test_escaped_braces_do_not_interpolate (test_lexer.LexerTests.test_escaped_braces_do_not_interpolate) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.5052797Z test_interpolated_string_produces_segments (test_lexer.LexerTests.test_interpolated_string_produces_segments) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.5053535Z test_invalid_interpolation_expression_is_rejected (test_lexer.LexerTests.test_invalid_interpolation_expression_is_rejected) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.5054241Z test_keywords_types_symbols_and_values (test_lexer.LexerTests.test_keywords_types_symbols_and_values) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.5054842Z test_logical_and_bang_operators (test_lexer.LexerTests.test_logical_and_bang_operators) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.5055389Z test_plain_string_stays_plain (test_lexer.LexerTests.test_plain_string_stays_plain) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.5056016Z test_unterminated_string_reports_location (test_lexer.LexerTests.test_unterminated_string_reports_location) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.5056705Z test_bare_or_return_before_next_statement (test_parser.ParserTests.test_bare_or_return_before_next_statement) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.5057334Z test_binary_operator_precedence (test_parser.ParserTests.test_binary_operator_precedence) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.5057954Z test_comparison_and_logical_operators (test_parser.ParserTests.test_comparison_and_logical_operators) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.5058526Z test_if_else_if_else_chain (test_parser.ParserTests.test_if_else_if_else_chain) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.5059147Z test_interpolated_string_builds_member_chain (test_parser.ParserTests.test_interpolated_string_builds_member_chain) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.5059853Z test_or_block_expression (test_parser.ParserTests.test_or_block_expression) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.5060360Z test_or_default_expression (test_parser.ParserTests.test_or_default_expression) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.5061406Z test_parses_functions_parameters_and_union_return_type (test_parser.ParserTests.test_parses_functions_parameters_and_union_return_type) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.5063449Z test_parses_or_return_and_mutability_metadata (test_parser.ParserTests.test_parses_or_return_and_mutability_metadata) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.5064122Z test_reports_missing_closing_brace (test_parser.ParserTests.test_reports_missing_closing_brace) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.5064638Z test_unary_minus (test_parser.ParserTests.test_unary_minus) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.5065076Z test_while_statement (test_parser.ParserTests.test_while_statement) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.5066054Z test_accepts_assignment_to_mutable_variable (test_semantic.SemanticTests.test_accepts_assignment_to_mutable_variable) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.5066741Z test_accepts_network_access_with_net_caps (test_semantic.SemanticTests.test_accepts_network_access_with_net_caps) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.5067671Z test_arithmetic_type_mismatch_is_rejected (test_semantic.SemanticTests.test_arithmetic_type_mismatch_is_rejected) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.5068586Z test_block_scoped_let_does_not_leak (test_semantic.SemanticTests.test_block_scoped_let_does_not_leak) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.5070232Z test_handled_capability_errors_are_accepted (test_semantic.SemanticTests.test_handled_capability_errors_are_accepted) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.5070926Z test_if_condition_must_be_bool (test_semantic.SemanticTests.test_if_condition_must_be_bool) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.5071599Z test_interpolation_checks_identifiers (test_semantic.SemanticTests.test_interpolation_checks_identifiers) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.5072344Z test_interpolation_with_known_member_path_passes (test_semantic.SemanticTests.test_interpolation_with_known_member_path_passes) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.5073612Z test_narrowed_capability_cannot_be_rewidened (test_semantic.SemanticTests.test_narrowed_capability_cannot_be_rewidened) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.5075871Z test_narrowed_capability_passed_to_function_keeps_permissions (test_semantic.SemanticTests.test_narrowed_capability_passed_to_function_keeps_permissions) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.5077605Z test_or_else_and_or_block_pass (test_semantic.SemanticTests.test_or_else_and_or_block_pass) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.5078943Z test_read_only_capability_cannot_write (test_semantic.SemanticTests.test_read_only_capability_cannot_write) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.5079965Z test_rejects_assignment_to_immutable_variable (test_semantic.SemanticTests.test_rejects_assignment_to_immutable_variable) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.5080800Z test_rejects_network_access_without_net_caps (test_semantic.SemanticTests.test_rejects_network_access_without_net_caps) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.5081920Z test_root_capability_cannot_do_io_directly (test_semantic.SemanticTests.test_root_capability_cannot_do_io_directly) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.5083037Z test_system_caps_can_create_restricted_net_caps (test_semantic.SemanticTests.test_system_caps_can_create_restricted_net_caps) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.5083737Z test_system_caps_has_no_direct_operations (test_semantic.SemanticTests.test_system_caps_has_no_direct_operations) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.5084955Z test_unhandled_capability_error_is_rejected (test_semantic.SemanticTests.test_unhandled_capability_error_is_rejected) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.5085924Z test_while_with_comparison_condition_passes (test_semantic.SemanticTests.test_while_with_comparison_condition_passes) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.5086238Z 
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.5086462Z ----------------------------------------------------------------------
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.5086716Z Ran 57 tests in 0.009s
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.5086819Z 
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.5086879Z OK
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.5153946Z 
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.5154443Z === BULGU 1 / KS3402: redirect origin koruması ===
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.5159836Z 
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.5160082Z $ python -m unittest discover -s tests -v
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.5883852Z test_check_accepts_valid_koschei_file (test_cli.CliTests.test_check_accepts_valid_koschei_file) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.5892921Z test_check_rejects_non_koschei_extension (test_cli.CliTests.test_check_rejects_non_koschei_extension) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:06.5896156Z test_arithmetic_and_while_countdown (test_interpreter.InterpreterTests.test_arithmetic_and_while_countdown) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:07.5939392Z test_cross_origin_redirect_returns_ks3402_without_following (test_interpreter.InterpreterTests.test_cross_origin_redirect_returns_ks3402_without_following) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:07.5943118Z test_disk_read_caps_outside_write_returns_ks3402 (test_interpreter.InterpreterTests.test_disk_read_caps_outside_write_returns_ks3402) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:07.5944794Z test_disk_read_caps_write_returns_ks3404_value (test_interpreter.InterpreterTests.test_disk_read_caps_write_returns_ks3404_value) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:07.5953832Z test_disk_read_scope_and_parent_escape (test_interpreter.InterpreterTests.test_disk_read_scope_and_parent_escape) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:07.5957261Z test_disk_scope_error_contains_ks3402_and_rejects_symlink (test_interpreter.InterpreterTests.test_disk_scope_error_contains_ks3402_and_rejects_symlink) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:07.5958749Z test_division_by_zero_can_be_handled (test_interpreter.InterpreterTests.test_division_by_zero_can_be_handled) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:07.5961051Z test_env_allow_and_get (test_interpreter.InterpreterTests.test_env_allow_and_get) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:07.5962879Z test_or_block_runs_and_returns_last_expression (test_interpreter.InterpreterTests.test_or_block_runs_and_returns_last_expression) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:07.5964176Z test_or_default_uses_fallback (test_interpreter.InterpreterTests.test_or_default_uses_fallback) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:07.5966232Z test_or_return_propagates_error_to_caller (test_interpreter.InterpreterTests.test_or_return_propagates_error_to_caller) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:07.5967485Z test_println_and_string_interpolation (test_interpreter.InterpreterTests.test_println_and_string_interpolation) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:07.5985343Z test_recursion_limit_raises_ks3105_without_python_error (test_interpreter.InterpreterTests.test_recursion_limit_raises_ks3105_without_python_error) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:07.6095754Z test_rejected_network_origin_does_not_make_http_request (test_interpreter.InterpreterTests.test_rejected_network_origin_does_not_make_http_request) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:08.1218412Z test_same_origin_redirect_is_followed (test_interpreter.InterpreterTests.test_same_origin_redirect_is_followed) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:08.1219993Z test_unhandled_error_returns_exit_code_one (test_interpreter.InterpreterTests.test_unhandled_error_returns_exit_code_one) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:08.1220828Z test_comment_content_does_not_become_tokens (test_lexer.LexerTests.test_comment_content_does_not_become_tokens) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:08.1221547Z test_control_flow_keywords_and_bool_literals (test_lexer.LexerTests.test_control_flow_keywords_and_bool_literals) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:08.1231057Z test_empty_interpolation_is_rejected (test_lexer.LexerTests.test_empty_interpolation_is_rejected) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:08.1231841Z test_escaped_braces_do_not_interpolate (test_lexer.LexerTests.test_escaped_braces_do_not_interpolate) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:08.1232551Z test_interpolated_string_produces_segments (test_lexer.LexerTests.test_interpolated_string_produces_segments) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:08.1233300Z test_invalid_interpolation_expression_is_rejected (test_lexer.LexerTests.test_invalid_interpolation_expression_is_rejected) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:08.1234019Z test_keywords_types_symbols_and_values (test_lexer.LexerTests.test_keywords_types_symbols_and_values) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:08.1234621Z test_logical_and_bang_operators (test_lexer.LexerTests.test_logical_and_bang_operators) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:08.1235189Z test_plain_string_stays_plain (test_lexer.LexerTests.test_plain_string_stays_plain) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:08.1235807Z test_unterminated_string_reports_location (test_lexer.LexerTests.test_unterminated_string_reports_location) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:08.1236745Z test_bare_or_return_before_next_statement (test_parser.ParserTests.test_bare_or_return_before_next_statement) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:08.1237423Z test_binary_operator_precedence (test_parser.ParserTests.test_binary_operator_precedence) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:08.1238003Z test_comparison_and_logical_operators (test_parser.ParserTests.test_comparison_and_logical_operators) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:08.1238533Z test_if_else_if_else_chain (test_parser.ParserTests.test_if_else_if_else_chain) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:08.1239225Z test_interpolated_string_builds_member_chain (test_parser.ParserTests.test_interpolated_string_builds_member_chain) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:08.1240036Z test_or_block_expression (test_parser.ParserTests.test_or_block_expression) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:08.1240507Z test_or_default_expression (test_parser.ParserTests.test_or_default_expression) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:08.1241144Z test_parses_functions_parameters_and_union_return_type (test_parser.ParserTests.test_parses_functions_parameters_and_union_return_type) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:08.1241922Z test_parses_or_return_and_mutability_metadata (test_parser.ParserTests.test_parses_or_return_and_mutability_metadata) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:08.1242594Z test_reports_missing_closing_brace (test_parser.ParserTests.test_reports_missing_closing_brace) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:08.1243092Z test_unary_minus (test_parser.ParserTests.test_unary_minus) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:08.1243510Z test_while_statement (test_parser.ParserTests.test_while_statement) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:08.1244115Z test_accepts_assignment_to_mutable_variable (test_semantic.SemanticTests.test_accepts_assignment_to_mutable_variable) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:08.1244834Z test_accepts_network_access_with_net_caps (test_semantic.SemanticTests.test_accepts_network_access_with_net_caps) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:08.1250376Z test_arithmetic_type_mismatch_is_rejected (test_semantic.SemanticTests.test_arithmetic_type_mismatch_is_rejected) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:08.1251315Z test_block_scoped_let_does_not_leak (test_semantic.SemanticTests.test_block_scoped_let_does_not_leak) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:08.1252440Z test_handled_capability_errors_are_accepted (test_semantic.SemanticTests.test_handled_capability_errors_are_accepted) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:08.1253272Z test_if_condition_must_be_bool (test_semantic.SemanticTests.test_if_condition_must_be_bool) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:08.1254082Z test_interpolation_checks_identifiers (test_semantic.SemanticTests.test_interpolation_checks_identifiers) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:08.1255039Z test_interpolation_with_known_member_path_passes (test_semantic.SemanticTests.test_interpolation_with_known_member_path_passes) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:08.1255964Z test_narrowed_capability_cannot_be_rewidened (test_semantic.SemanticTests.test_narrowed_capability_cannot_be_rewidened) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:08.1256992Z test_narrowed_capability_passed_to_function_keeps_permissions (test_semantic.SemanticTests.test_narrowed_capability_passed_to_function_keeps_permissions) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:08.1257906Z test_or_else_and_or_block_pass (test_semantic.SemanticTests.test_or_else_and_or_block_pass) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:08.1258754Z test_read_only_capability_cannot_write (test_semantic.SemanticTests.test_read_only_capability_cannot_write) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:08.1259648Z test_rejects_assignment_to_immutable_variable (test_semantic.SemanticTests.test_rejects_assignment_to_immutable_variable) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:08.1260377Z test_rejects_network_access_without_net_caps (test_semantic.SemanticTests.test_rejects_network_access_without_net_caps) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:08.1261078Z test_root_capability_cannot_do_io_directly (test_semantic.SemanticTests.test_root_capability_cannot_do_io_directly) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:08.1262550Z test_system_caps_can_create_restricted_net_caps (test_semantic.SemanticTests.test_system_caps_can_create_restricted_net_caps) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:08.1263687Z test_system_caps_has_no_direct_operations (test_semantic.SemanticTests.test_system_caps_has_no_direct_operations) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:08.1265456Z test_unhandled_capability_error_is_rejected (test_semantic.SemanticTests.test_unhandled_capability_error_is_rejected) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:08.1266796Z test_while_with_comparison_condition_passes (test_semantic.SemanticTests.test_while_with_comparison_condition_passes) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:08.1267241Z 
+build	Apply findings sequentially and validate	2026-07-22T18:16:08.1267504Z ----------------------------------------------------------------------
+build	Apply findings sequentially and validate	2026-07-22T18:16:08.1267808Z Ran 59 tests in 1.540s
+build	Apply findings sequentially and validate	2026-07-22T18:16:08.1267926Z 
+build	Apply findings sequentially and validate	2026-07-22T18:16:08.1267997Z OK
+build	Apply findings sequentially and validate	2026-07-22T18:16:08.1380833Z 
+build	Apply findings sequentially and validate	2026-07-22T18:16:08.1381020Z === KABUL KOMUTLARI ===
+build	Apply findings sequentially and validate	2026-07-22T18:16:08.1381228Z 
+build	Apply findings sequentially and validate	2026-07-22T18:16:08.1381446Z $ python -m unittest discover -s tests -v
+build	Apply findings sequentially and validate	2026-07-22T18:16:08.1986403Z test_check_accepts_valid_koschei_file (test_cli.CliTests.test_check_accepts_valid_koschei_file) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:08.1992779Z test_check_rejects_non_koschei_extension (test_cli.CliTests.test_check_rejects_non_koschei_extension) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:08.1995612Z test_arithmetic_and_while_countdown (test_interpreter.InterpreterTests.test_arithmetic_and_while_countdown) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:09.2018111Z test_cross_origin_redirect_returns_ks3402_without_following (test_interpreter.InterpreterTests.test_cross_origin_redirect_returns_ks3402_without_following) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:09.2021430Z test_disk_read_caps_outside_write_returns_ks3402 (test_interpreter.InterpreterTests.test_disk_read_caps_outside_write_returns_ks3402) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:09.2023277Z test_disk_read_caps_write_returns_ks3404_value (test_interpreter.InterpreterTests.test_disk_read_caps_write_returns_ks3404_value) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:09.2031439Z test_disk_read_scope_and_parent_escape (test_interpreter.InterpreterTests.test_disk_read_scope_and_parent_escape) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:09.2035164Z test_disk_scope_error_contains_ks3402_and_rejects_symlink (test_interpreter.InterpreterTests.test_disk_scope_error_contains_ks3402_and_rejects_symlink) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:09.2036516Z test_division_by_zero_can_be_handled (test_interpreter.InterpreterTests.test_division_by_zero_can_be_handled) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:09.2038921Z test_env_allow_and_get (test_interpreter.InterpreterTests.test_env_allow_and_get) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:09.2041085Z test_or_block_runs_and_returns_last_expression (test_interpreter.InterpreterTests.test_or_block_runs_and_returns_last_expression) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:09.2042415Z test_or_default_uses_fallback (test_interpreter.InterpreterTests.test_or_default_uses_fallback) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:09.2044744Z test_or_return_propagates_error_to_caller (test_interpreter.InterpreterTests.test_or_return_propagates_error_to_caller) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:09.2045950Z test_println_and_string_interpolation (test_interpreter.InterpreterTests.test_println_and_string_interpolation) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:09.2061273Z test_recursion_limit_raises_ks3105_without_python_error (test_interpreter.InterpreterTests.test_recursion_limit_raises_ks3105_without_python_error) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:09.2169057Z test_rejected_network_origin_does_not_make_http_request (test_interpreter.InterpreterTests.test_rejected_network_origin_does_not_make_http_request) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:09.7290834Z test_same_origin_redirect_is_followed (test_interpreter.InterpreterTests.test_same_origin_redirect_is_followed) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:09.7291941Z test_unhandled_error_returns_exit_code_one (test_interpreter.InterpreterTests.test_unhandled_error_returns_exit_code_one) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:09.7292686Z test_comment_content_does_not_become_tokens (test_lexer.LexerTests.test_comment_content_does_not_become_tokens) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:09.7293351Z test_control_flow_keywords_and_bool_literals (test_lexer.LexerTests.test_control_flow_keywords_and_bool_literals) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:09.7294005Z test_empty_interpolation_is_rejected (test_lexer.LexerTests.test_empty_interpolation_is_rejected) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:09.7294891Z test_escaped_braces_do_not_interpolate (test_lexer.LexerTests.test_escaped_braces_do_not_interpolate) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:09.7295550Z test_interpolated_string_produces_segments (test_lexer.LexerTests.test_interpolated_string_produces_segments) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:09.7296287Z test_invalid_interpolation_expression_is_rejected (test_lexer.LexerTests.test_invalid_interpolation_expression_is_rejected) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:09.7296987Z test_keywords_types_symbols_and_values (test_lexer.LexerTests.test_keywords_types_symbols_and_values) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:09.7297573Z test_logical_and_bang_operators (test_lexer.LexerTests.test_logical_and_bang_operators) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:09.7298112Z test_plain_string_stays_plain (test_lexer.LexerTests.test_plain_string_stays_plain) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:09.7298712Z test_unterminated_string_reports_location (test_lexer.LexerTests.test_unterminated_string_reports_location) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:09.7299407Z test_bare_or_return_before_next_statement (test_parser.ParserTests.test_bare_or_return_before_next_statement) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:09.7300313Z test_binary_operator_precedence (test_parser.ParserTests.test_binary_operator_precedence) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:09.7301420Z test_comparison_and_logical_operators (test_parser.ParserTests.test_comparison_and_logical_operators) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:09.7302402Z test_if_else_if_else_chain (test_parser.ParserTests.test_if_else_if_else_chain) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:09.7303439Z test_interpolated_string_builds_member_chain (test_parser.ParserTests.test_interpolated_string_builds_member_chain) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:09.7304340Z test_or_block_expression (test_parser.ParserTests.test_or_block_expression) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:09.7305127Z test_or_default_expression (test_parser.ParserTests.test_or_default_expression) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:09.7308026Z test_parses_functions_parameters_and_union_return_type (test_parser.ParserTests.test_parses_functions_parameters_and_union_return_type) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:09.7310710Z test_parses_or_return_and_mutability_metadata (test_parser.ParserTests.test_parses_or_return_and_mutability_metadata) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:09.7311535Z test_reports_missing_closing_brace (test_parser.ParserTests.test_reports_missing_closing_brace) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:09.7312162Z test_unary_minus (test_parser.ParserTests.test_unary_minus) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:09.7312841Z test_while_statement (test_parser.ParserTests.test_while_statement) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:09.7314113Z test_accepts_assignment_to_mutable_variable (test_semantic.SemanticTests.test_accepts_assignment_to_mutable_variable) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:09.7315184Z test_accepts_network_access_with_net_caps (test_semantic.SemanticTests.test_accepts_network_access_with_net_caps) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:09.7316306Z test_arithmetic_type_mismatch_is_rejected (test_semantic.SemanticTests.test_arithmetic_type_mismatch_is_rejected) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:09.7317657Z test_block_scoped_let_does_not_leak (test_semantic.SemanticTests.test_block_scoped_let_does_not_leak) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:09.7319914Z test_handled_capability_errors_are_accepted (test_semantic.SemanticTests.test_handled_capability_errors_are_accepted) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:09.7320698Z test_if_condition_must_be_bool (test_semantic.SemanticTests.test_if_condition_must_be_bool) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:09.7321608Z test_interpolation_checks_identifiers (test_semantic.SemanticTests.test_interpolation_checks_identifiers) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:09.7322638Z test_interpolation_with_known_member_path_passes (test_semantic.SemanticTests.test_interpolation_with_known_member_path_passes) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:09.7324536Z test_narrowed_capability_cannot_be_rewidened (test_semantic.SemanticTests.test_narrowed_capability_cannot_be_rewidened) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:09.7327437Z test_narrowed_capability_passed_to_function_keeps_permissions (test_semantic.SemanticTests.test_narrowed_capability_passed_to_function_keeps_permissions) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:09.7329854Z test_or_else_and_or_block_pass (test_semantic.SemanticTests.test_or_else_and_or_block_pass) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:09.7331807Z test_read_only_capability_cannot_write (test_semantic.SemanticTests.test_read_only_capability_cannot_write) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:09.7332928Z test_rejects_assignment_to_immutable_variable (test_semantic.SemanticTests.test_rejects_assignment_to_immutable_variable) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:09.7334022Z test_rejects_network_access_without_net_caps (test_semantic.SemanticTests.test_rejects_network_access_without_net_caps) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:09.7335701Z test_root_capability_cannot_do_io_directly (test_semantic.SemanticTests.test_root_capability_cannot_do_io_directly) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:09.7337302Z test_system_caps_can_create_restricted_net_caps (test_semantic.SemanticTests.test_system_caps_can_create_restricted_net_caps) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:09.7338187Z test_system_caps_has_no_direct_operations (test_semantic.SemanticTests.test_system_caps_has_no_direct_operations) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:09.7340150Z test_unhandled_capability_error_is_rejected (test_semantic.SemanticTests.test_unhandled_capability_error_is_rejected) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:09.7341426Z test_while_with_comparison_condition_passes (test_semantic.SemanticTests.test_while_with_comparison_condition_passes) ... ok
+build	Apply findings sequentially and validate	2026-07-22T18:16:09.7341815Z 
+build	Apply findings sequentially and validate	2026-07-22T18:16:09.7341959Z ----------------------------------------------------------------------
+build	Apply findings sequentially and validate	2026-07-22T18:16:09.7342243Z Ran 59 tests in 1.537s
+build	Apply findings sequentially and validate	2026-07-22T18:16:09.7342357Z 
+build	Apply findings sequentially and validate	2026-07-22T18:16:09.7342429Z OK
+build	Apply findings sequentially and validate	2026-07-22T18:16:09.7430877Z 
+build	Apply findings sequentially and validate	2026-07-22T18:16:09.7431068Z $ python koschei.py check examples/runtime_demo.ks
+build	Apply findings sequentially and validate	2026-07-22T18:16:09.7941655Z KOSCHEI CHECK: PASS (2 fonksiyon, 6 değişken, 4 capability değeri)
+build	Apply findings sequentially and validate	2026-07-22T18:16:09.8001474Z 
+build	Apply findings sequentially and validate	2026-07-22T18:16:09.8001690Z $ python koschei.py run examples/runtime_demo.ks
+build	Apply findings sequentially and validate	2026-07-22T18:16:09.8512348Z Geçersiz sayı blok içinde ele alındı
+build	Apply findings sequentially and validate	2026-07-22T18:16:09.8512693Z Geri sayım: 3
+build	Apply findings sequentially and validate	2026-07-22T18:16:09.8512880Z Geri sayım: 2
+build	Apply findings sequentially and validate	2026-07-22T18:16:09.8513059Z Geri sayım: 1
+build	Apply findings sequentially and validate	2026-07-22T18:16:09.8513344Z Merhaba misafir; sayı hazır; varsayılan: 2
+build	Apply findings sequentially and validate	2026-07-22T18:16:09.8574282Z 
+build	Apply findings sequentially and validate	2026-07-22T18:16:09.8574460Z $ python koschei.py check examples/showcase.ks
+build	Apply findings sequentially and validate	2026-07-22T18:16:09.9085233Z KOSCHEI CHECK: PASS (2 fonksiyon, 8 değişken, 8 capability değeri)
+build	Apply findings sequentially and validate	2026-07-22T18:16:09.9145765Z 
+build	Apply findings sequentially and validate	2026-07-22T18:16:09.9145894Z $ python koschei.py run examples/showcase.ks
+build	Apply findings sequentially and validate	2026-07-22T18:16:09.9771224Z Başlatma hatası
+build	Apply findings sequentially and validate	2026-07-22T18:16:09.9771466Z Denemeler tamam: unit
+build	Commit and push verified result	﻿2026-07-22T18:16:09.9917682Z ##[group]Run git config user.name "bugsbuny243"
+build	Commit and push verified result	2026-07-22T18:16:09.9917913Z ^[[36;1mgit config user.name "bugsbuny243"^[[0m
+build	Commit and push verified result	2026-07-22T18:16:09.9918135Z ^[[36;1mgit config user.email "240416572+bugsbuny243@users.noreply.github.com"^[[0m
+build	Commit and push verified result	2026-07-22T18:16:09.9918468Z ^[[36;1mgit add interpreter.py semantic.py tests/test_interpreter.py tests/test_semantic.py docs/language-core.md^[[0m
+build	Commit and push verified result	2026-07-22T18:16:09.9918765Z ^[[36;1mgit commit -m "interpreter security fixes v0.1.1"^[[0m
+build	Commit and push verified result	2026-07-22T18:16:09.9919017Z ^[[36;1mgit push --force-with-lease origin agent/interpreter-security-v0.1.1-direct^[[0m
+build	Commit and push verified result	2026-07-22T18:16:09.9953507Z shell: /usr/bin/bash -e {0}
+build	Commit and push verified result	2026-07-22T18:16:09.9953644Z env:
+build	Commit and push verified result	2026-07-22T18:16:09.9953791Z   pythonLocation: /opt/hostedtoolcache/Python/3.12.13/x64
+build	Commit and push verified result	2026-07-22T18:16:09.9954018Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.12.13/x64/lib/pkgconfig
+build	Commit and push verified result	2026-07-22T18:16:09.9954243Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.13/x64
+build	Commit and push verified result	2026-07-22T18:16:09.9954445Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.13/x64
+build	Commit and push verified result	2026-07-22T18:16:09.9954663Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.13/x64
+build	Commit and push verified result	2026-07-22T18:16:09.9954867Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.12.13/x64/lib
+build	Commit and push verified result	2026-07-22T18:16:09.9955040Z ##[endgroup]
+build	Commit and push verified result	2026-07-22T18:16:10.0097045Z [agent/interpreter-security-v0.1.1-direct b0cbe13] interpreter security fixes v0.1.1
+build	Commit and push verified result	2026-07-22T18:16:10.0097482Z  5 files changed, 267 insertions(+), 22 deletions(-)
+build	Commit and push verified result	2026-07-22T18:16:10.4241222Z To https://github.com/bugsbuny243/koschei-lang
+build	Commit and push verified result	2026-07-22T18:16:10.4242028Z  ! [rejected]        agent/interpreter-security-v0.1.1-direct -> agent/interpreter-security-v0.1.1-direct (stale info)
+build	Commit and push verified result	2026-07-22T18:16:10.4242596Z error: failed to push some refs to 'https://github.com/bugsbuny243/koschei-lang'
+build	Commit and push verified result	2026-07-22T18:16:10.4267239Z ##[error]Process completed with exit code 1.
+build	Post Checkout runner branch	﻿2026-07-22T18:16:10.4345033Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+build	Post Checkout runner branch	2026-07-22T18:16:10.4345658Z Post job cleanup.
+build	Post Checkout runner branch	2026-07-22T18:16:10.4833381Z [command]/usr/bin/git version
+build	Post Checkout runner branch	2026-07-22T18:16:10.4861925Z git version 2.54.0
+build	Post Checkout runner branch	2026-07-22T18:16:10.4883783Z Temporarily overriding HOME='/home/runner/work/_temp/cac48474-ae3f-4319-b845-5952763d0971' before making global git config changes
+build	Post Checkout runner branch	2026-07-22T18:16:10.4884414Z Adding repository directory to the temporary git global config as a safe directory
+build	Post Checkout runner branch	2026-07-22T18:16:10.4886643Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/koschei-lang/koschei-lang
+build	Post Checkout runner branch	2026-07-22T18:16:10.4914748Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+build	Post Checkout runner branch	2026-07-22T18:16:10.4965788Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+build	Post Checkout runner branch	2026-07-22T18:16:10.5151064Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+build	Post Checkout runner branch	2026-07-22T18:16:10.5169449Z http.https://github.com/.extraheader
+build	Post Checkout runner branch	2026-07-22T18:16:10.5177682Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+build	Post Checkout runner branch	2026-07-22T18:16:10.5205734Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+build	Post Checkout runner branch	2026-07-22T18:16:10.5395590Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+build	Post Checkout runner branch	2026-07-22T18:16:10.5425332Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+build	Complete job	﻿2026-07-22T18:16:10.5696822Z Cleaning up orphan processes
+build	Complete job	2026-07-22T18:16:10.5829209Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-python@v5. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
