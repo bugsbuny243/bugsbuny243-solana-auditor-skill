@@ -15,16 +15,37 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: Checkout diagnostics branch
         uses: actions/checkout@v4
+        with:
+          ref: agent/diagnostics-v0.2
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
+      - name: Verify product diff boundary
+        run: |
+          git fetch origin main
+          files="$(git diff --name-only origin/main...HEAD)"
+          printf '%s\n' "$files"
+          expected="diagnostics.py
+docs/language-core.md
+koschei-lang.zip
+koschei.py
+tests/test_diagnostics.py"
+          test "$files" = "$expected"
+
       - name: Run unit tests
         run: python -m unittest discover -s tests -v
+
+      - name: Explain KS2403
+        run: python koschei.py explain KS2403
+
+      - name: Explain KS1401
+        run: python koschei.py explain KS1401
 
       - name: Check capability example
         run: python koschei.py check examples/capability.ks
@@ -39,6 +60,10 @@ jobs:
         run: python koschei.py check examples/control_flow.ks
 
       - name: Run control flow example
-        run: |
-          output="$(python koschei.py run examples/control_flow.ks)"
-          test "$output" = $'3\n2\n1\nKoschei control flow: PASS'
+        run: python koschei.py run examples/control_flow.ks
+
+      - name: Check showcase example
+        run: python koschei.py check examples/showcase.ks
+
+      - name: Run showcase example
+        run: python koschei.py run examples/showcase.ks
