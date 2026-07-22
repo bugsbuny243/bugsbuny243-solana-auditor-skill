@@ -22,6 +22,18 @@ jobs:
         run: |
           cp .github/scripts/write_security_v011_verbatim.py /tmp/write_security_v011_verbatim.py
           cp .github/scripts/write_security_v011_verbatim_tests_docs.py /tmp/write_security_v011_verbatim_tests_docs.py
+          python - <<'PY'
+          from pathlib import Path
+
+          for name in (
+              "/tmp/write_security_v011_verbatim.py",
+              "/tmp/write_security_v011_verbatim_tests_docs.py",
+          ):
+              path = Path(name)
+              text = path.read_text(encoding="utf-8")
+              text = text.replace('": \'\'\'', '": r\'\'\'')
+              path.write_text(text, encoding="utf-8")
+          PY
 
       - name: Set up Python 3.12
         uses: actions/setup-python@v5
