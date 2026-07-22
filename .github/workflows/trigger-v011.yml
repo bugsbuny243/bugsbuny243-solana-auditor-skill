@@ -1,0 +1,51 @@
+name: Trigger interpreter v0.1.1 patch
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.head_ref == 'agent/interpreter-security-v0.1.1'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/interpreter-security-v0.1.1
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Apply stored patch
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          text = Path('.github/workflows/apply-v011.yml').read_text(encoding='utf-8')
+          start = text.index("          python - <<'PY'\n") + len("          python - <<'PY'\n")
+          end = text.index("\n          PY\n", start)
+          script = '\n'.join(line[10:] for line in text[start:end].splitlines())
+          exec(compile(script, 'apply-v011', 'exec'))
+          PY
+
+      - name: Validate acceptance criteria
+        run: |
+          python -m unittest discover -s tests -v
+          python koschei.py check examples/runtime_demo.ks
+          python koschei.py run examples/runtime_demo.ks
+          python koschei.py check examples/showcase.ks
+          python koschei.py run examples/showcase.ks
+
+      - name: Commit clean result
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          rm .github/workflows/apply-v011.yml .github/workflows/trigger-v011.yml
+          git add interpreter.py semantic.py tests/test_interpreter.py tests/test_semantic.py docs/language-core.md .github/workflows/apply-v011.yml .github/workflows/trigger-v011.yml
+          git commit -m "interpreter v0.1.1 security fixes"
+          git push origin HEAD:agent/interpreter-security-v0.1.1
