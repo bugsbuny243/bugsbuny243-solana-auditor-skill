@@ -1,0 +1,479 @@
+name: Apply interpreter v0.1.1 security fixes
+
+on:
+  push:
+    branches:
+      - agent/interpreter-security-v0.1.1
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/interpreter-security-v0.1.1
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Apply scoped security fixes
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path: str, old: str, new: str) -> None:
+              file = Path(path)
+              text = file.read_text(encoding="utf-8")
+              if text.count(old) != 1:
+                  raise SystemExit(f"Beklenen parça bulunamadı veya tekil değil: {path}")
+              file.write_text(text.replace(old, new, 1), encoding="utf-8")
+
+          replace_once(
+              "interpreter.py",
+              "from semantic import check as semantic_check\n\n\n@dataclass",
+              "from semantic import check as semantic_check\n\n\nMAX_CALL_DEPTH = 512\n\n\n@dataclass",
+          )
+
+          old_net = '''class NetCaps(_NarrowedCapability):
+              __slots__ = ("origin", "origin_key")
+
+              def __init__(self, origin: str) -> None:
+                  self.origin = origin
+                  self.origin_key = _origin_key(origin)
+
+              def _allows(self, url: str) -> bool:
+                  return self.origin_key is not None and _origin_key(url) == self.origin_key
+
+              def get(self, url: str) -> Response | KsError:
+                  if not self._allows(url):
+                      return KsError(
+                          f"KS3402: Ağ origin kapsamı dışında erişim reddedildi: {url}"
+                      )
+                  try:
+                      request = urllib.request.Request(url, method="GET")
+                      with urllib.request.urlopen(request, timeout=10) as response:
+                          charset = response.headers.get_content_charset() or "utf-8"
+                          body = response.read().decode(charset, errors="replace")
+                          return Response(body, int(response.status))
+                  except (OSError, urllib.error.URLError) as error:
+                      return KsError(f"API isteği başarısız: {error}")
+          '''
+          new_net = '''class _ScopedRedirectHandler(urllib.request.HTTPRedirectHandler):
+              max_redirections = 5
+
+              def __init__(self, origin_key: tuple[str, str, int | None] | None) -> None:
+                  super().__init__()
+                  self.origin_key = origin_key
+                  self.blocked_url: str | None = None
+
+              def reset(self) -> None:
+                  self.blocked_url = None
+
+              def redirect_request(
+                  self,
+                  request: urllib.request.Request,
+                  file_pointer: object,
+                  code: int,
+                  message: str,
+                  headers: object,
+                  new_url: str,
+              ) -> urllib.request.Request | None:
+                  if self.origin_key is None or _origin_key(new_url) != self.origin_key:
+                      self.blocked_url = new_url
+                      return None
+                  return super().redirect_request(
+                      request, file_pointer, code, message, headers, new_url
+                  )
+
+
+          class NetCaps(_NarrowedCapability):
+              __slots__ = ("origin", "origin_key", "_redirect_handler", "_opener")
+
+              def __init__(self, origin: str) -> None:
+                  self.origin = origin
+                  self.origin_key = _origin_key(origin)
+                  self._redirect_handler = _ScopedRedirectHandler(self.origin_key)
+                  self._opener = urllib.request.build_opener(self._redirect_handler)
+
+              def _allows(self, url: str) -> bool:
+                  return self.origin_key is not None and _origin_key(url) == self.origin_key
+
+              def get(self, url: str) -> Response | KsError:
+                  if not self._allows(url):
+                      return KsError(
+                          f"KS3402: Ağ origin kapsamı dışında erişim reddedildi: {url}"
+                      )
+                  self._redirect_handler.reset()
+                  try:
+                      request = urllib.request.Request(url, method="GET")
+                      with self._opener.open(request, timeout=10) as response:
+                          charset = response.headers.get_content_charset() or "utf-8"
+                          body = response.read().decode(charset, errors="replace")
+                          return Response(body, int(response.status))
+                  except urllib.error.HTTPError as error:
+                      if self._redirect_handler.blocked_url is not None:
+                          return KsError(
+                              "KS3402: Ağ yönlendirmesi kapsam dışına çıktı: "
+                              f"{self._redirect_handler.blocked_url}"
+                          )
+                      return KsError(f"API isteği başarısız: {error}")
+                  except (OSError, urllib.error.URLError) as error:
+                      if self._redirect_handler.blocked_url is not None:
+                          return KsError(
+                              "KS3402: Ağ yönlendirmesi kapsam dışına çıktı: "
+                              f"{self._redirect_handler.blocked_url}"
+                          )
+                      return KsError(f"API isteği başarısız: {error}")
+          '''
+          replace_once("interpreter.py", old_net, new_net)
+
+          replace_once(
+              "interpreter.py",
+              '''        self.environment = _Environment()
+
+              def execute_main''',
+              '''        self.environment = _Environment()
+                  self._depth = 0
+
+              def execute_main''',
+          )
+          replace_once(
+              "interpreter.py",
+              '''        return self._call_function(main, arguments)
+
+              def _call_function(''',
+              '''        return self._call_function(main, arguments)
+
+              @staticmethod
+              def _depth_error(location: SourceLocation) -> KoscheiRuntimeError:
+                  return KoscheiRuntimeError(
+                      "KS3105",
+                      "Çağrı derinliği sınırı aşıldı (512); sonsuz özyineleme olabilir.",
+                      location,
+                  )
+
+              def _call_function(''',
+          )
+          old_call = '''        previous = self.environment
+                  self.environment = _Environment()
+                  try:
+                      for parameter, value in zip(function.parameters, arguments):
+                          self.environment.define(parameter.name, value, False)
+                      try:
+                          return self._execute_block(function.body, create_scope=False)
+                      except _ReturnSignal as signal:
+                          return signal.value
+                  finally:
+                      self.environment = previous
+          '''
+          new_call = '''        if self._depth >= MAX_CALL_DEPTH:
+                      raise self._depth_error(function.location)
+
+                  self._depth += 1
+                  previous = self.environment
+                  self.environment = _Environment()
+                  try:
+                      for parameter, value in zip(function.parameters, arguments):
+                          self.environment.define(parameter.name, value, False)
+                      try:
+                          return self._execute_block(function.body, create_scope=False)
+                      except _ReturnSignal as signal:
+                          return signal.value
+                      except RecursionError:
+                          raise self._depth_error(function.location) from None
+                  finally:
+                      self.environment = previous
+                      self._depth -= 1
+          '''
+          replace_once("interpreter.py", old_call, new_call)
+          replace_once(
+              "interpreter.py",
+              '''            for statement in block.statements:
+                      result = self._execute_statement(statement)
+                      if isinstance(result, KsError):
+                          return result
+                  return result''',
+              '''            for statement in block.statements:
+                      result = self._execute_statement(statement)
+                  return result''',
+          )
+          replace_once(
+              "interpreter.py",
+              '''                result = self._execute_block(statement.body)
+                      if isinstance(result, KsError):
+                          return result
+          ''',
+              '''                result = self._execute_block(statement.body)
+          ''',
+          )
+
+          replace_once(
+              "semantic.py",
+              "    KS1301  Tip uyuşmazlığı\n",
+              "    KS1301  Tip uyuşmazlığı\n    KS1401  Ele alınmayan hata değeri\n",
+          )
+          replace_once(
+              "semantic.py",
+              '''for _methods in NARROWED_METHODS.values():
+              GUARDED_METHODS.update(_methods)
+
+          CAPABILITY_TYPES''',
+              '''for _methods in NARROWED_METHODS.values():
+              GUARDED_METHODS.update(_methods)
+
+          ERROR_RETURNING_METHODS = {
+              "get",
+              "post",
+              "put",
+              "delete",
+              "request",
+              "read",
+              "write",
+              "list",
+              "read_file",
+              "write_file",
+              "run",
+              "spawn",
+          }
+
+          CAPABILITY_TYPES''',
+          )
+          replace_once(
+              "semantic.py",
+              '''        if isinstance(statement, ExpressionStatement):
+                  self._check_expression(statement.expression)
+                  return
+          ''',
+              '''        if isinstance(statement, ExpressionStatement):
+                  self._check_expression(statement.expression)
+                  if self._is_unhandled_error_call(statement.expression):
+                      raise SemanticError(
+                          "KS1401",
+                          "Hata dönebilen çağrının sonucu ele alınmalıdır "
+                          "('let ... = ...', 'or return', 'or varsayılan' veya "
+                          "'or { ... }' kullanın).",
+                          statement.location,
+                      )
+                  return
+          ''',
+          )
+          replace_once(
+              "semantic.py",
+              '''        raise AssertionError(f"Desteklenmeyen statement: {type(statement).__name__}")
+
+              # ------------------------------------------------------------------
+              # Expression denetimi''',
+              '''        raise AssertionError(f"Desteklenmeyen statement: {type(statement).__name__}")
+
+              @staticmethod
+              def _is_unhandled_error_call(expression: Expression) -> bool:
+                  if not isinstance(expression, CallExpression):
+                      return False
+                  if isinstance(expression.callee, Identifier):
+                      return expression.callee.name == "Error"
+                  if isinstance(expression.callee, MemberExpression):
+                      return expression.callee.member in ERROR_RETURNING_METHODS
+                  return False
+
+              # ------------------------------------------------------------------
+              # Expression denetimi''',
+          )
+
+          replace_once(
+              "tests/test_interpreter.py",
+              '''import tempfile
+          import unittest
+          from contextlib import redirect_stderr, redirect_stdout
+          from pathlib import Path
+
+          from interpreter import DiskReadCaps, KsError, run
+          ''',
+              '''import tempfile
+          import threading
+          import unittest
+          from contextlib import redirect_stderr, redirect_stdout
+          from http.server import BaseHTTPRequestHandler, HTTPServer
+          from pathlib import Path
+
+          from interpreter import (
+              DiskReadCaps,
+              KoscheiRuntimeError,
+              KsError,
+              NetCaps,
+              Response,
+              run,
+          )
+          ''',
+          )
+          replace_once(
+              "tests/test_interpreter.py",
+              '''from parser import parse
+
+
+          class InterpreterTests''',
+              '''from parser import parse
+
+
+          class _QuietHandler(BaseHTTPRequestHandler):
+              def log_message(self, format: str, *args: object) -> None:
+                  return
+
+
+          class InterpreterTests''',
+          )
+          replace_once(
+              "tests/test_interpreter.py",
+              '''        return exit_code, output.getvalue(), error.getvalue()
+
+              def test_println''',
+              '''        return exit_code, output.getvalue(), error.getvalue()
+
+              @staticmethod
+              def start_server(
+                  handler: type[BaseHTTPRequestHandler],
+              ) -> tuple[HTTPServer, threading.Thread]:
+                  server = HTTPServer(("127.0.0.1", 0), handler)
+                  thread = threading.Thread(target=server.serve_forever, daemon=True)
+                  thread.start()
+                  return server, thread
+
+              @staticmethod
+              def stop_server(server: HTTPServer, thread: threading.Thread) -> None:
+                  server.shutdown()
+                  server.server_close()
+                  thread.join(timeout=2)
+
+              def test_println''',
+          )
+          interpreter_tests = '''
+              def test_cross_origin_redirect_is_rejected(self) -> None:
+                  reached = threading.Event()
+
+                  class TargetHandler(_QuietHandler):
+                      def do_GET(self) -> None:
+                          reached.set()
+                          self.send_response(200)
+                          self.end_headers()
+                          self.wfile.write(b"evil")
+
+                  target_server, target_thread = self.start_server(TargetHandler)
+                  target_url = f"http://127.0.0.1:{target_server.server_port}/target"
+
+                  class RedirectHandler(_QuietHandler):
+                      def do_GET(self) -> None:
+                          self.send_response(302)
+                          self.send_header("Location", target_url)
+                          self.end_headers()
+
+                  redirect_server, redirect_thread = self.start_server(RedirectHandler)
+                  try:
+                      origin = f"http://127.0.0.1:{redirect_server.server_port}"
+                      result = NetCaps(origin).get(f"{origin}/start")
+                  finally:
+                      self.stop_server(redirect_server, redirect_thread)
+                      self.stop_server(target_server, target_thread)
+
+                  self.assertIsInstance(result, KsError)
+                  self.assertIn("KS3402", result.message)
+                  self.assertIn(target_url, result.message)
+                  self.assertFalse(reached.is_set())
+
+              def test_same_origin_redirect_is_followed(self) -> None:
+                  class RedirectHandler(_QuietHandler):
+                      def do_GET(self) -> None:
+                          if self.path == "/start":
+                              self.send_response(302)
+                              self.send_header("Location", "/final")
+                              self.end_headers()
+                              return
+                          self.send_response(200)
+                          self.end_headers()
+                          self.wfile.write(b"tamam")
+
+                  server, thread = self.start_server(RedirectHandler)
+                  try:
+                      origin = f"http://127.0.0.1:{server.server_port}"
+                      result = NetCaps(origin).get(f"{origin}/start")
+                  finally:
+                      self.stop_server(server, thread)
+
+                  self.assertIsInstance(result, Response)
+                  self.assertEqual(result.text(), "tamam")
+                  self.assertEqual(result.status(), 200)
+
+              def test_recursion_limit_uses_ks3105(self) -> None:
+                  program = parse(
+                      'fn boom(n: Int) -> Int { return boom(n + 1) } '
+                      'fn main() { let value = boom(0) }'
+                  )
+                  with self.assertRaisesRegex(KoscheiRuntimeError, "KS3105") as caught:
+                      run(program, [])
+                  self.assertNotIsInstance(caught.exception, RecursionError)
+          '''
+          replace_once(
+              "tests/test_interpreter.py",
+              '\n\n          if __name__ == "__main__":\n',
+              interpreter_tests + '\n\n          if __name__ == "__main__":\n',
+          )
+
+          semantic_tests = '''
+              def test_unhandled_capability_error_is_rejected(self) -> None:
+                  program = parse(
+                      'fn main(caps: SystemCaps) { '
+                      'let ro = caps.disk.allow_read_only("/tmp/safe") '
+                      'ro.read("/etc/passwd") '
+                      '}'
+                  )
+                  with self.assertRaisesRegex(SemanticError, "KS1401"):
+                      check(program)
+
+              def test_handled_capability_errors_pass(self) -> None:
+                  program = parse(
+                      'fn main(caps: SystemCaps) { '
+                      'let ro = caps.disk.allow_read_only("/tmp/safe") '
+                      'let x = ro.read("/tmp/safe/x") or "" '
+                      'ro.read("/tmp/safe/x") or return '
+                      '}'
+                  )
+                  report = check(program)
+                  self.assertEqual(report.functions, 1)
+          '''
+          replace_once(
+              "tests/test_semantic.py",
+              '\n\n          if __name__ == "__main__":\n',
+              semantic_tests + '\n\n          if __name__ == "__main__":\n',
+          )
+          replace_once(
+              "docs/language-core.md",
+              "| KS1301 | Tip uyuşmazlığı (`\"abc\" + 5`, Bool olmayan `if` koşulu vb.) |\n",
+              "| KS1301 | Tip uyuşmazlığı (`\"abc\" + 5`, Bool olmayan `if` koşulu vb.) |\n| KS1401 | Ele alınmayan hata değeri |\n",
+          )
+          replace_once(
+              "docs/language-core.md",
+              "| KS2404 | Bu yetki türü ilgili işleme izin vermez |\n",
+              "| KS2404 | Bu yetki türü ilgili işleme izin vermez |\n| KS3105 | Çağrı derinliği sınırı aşıldı |\n| KS3402 | Kapsam dışı disk/ağ erişimi veya kapsam dışı ağ yönlendirmesi |\n",
+          )
+          PY
+
+      - name: Validate acceptance criteria
+        run: |
+          python -m unittest discover -s tests -v
+          python koschei.py check examples/runtime_demo.ks
+          python koschei.py run examples/runtime_demo.ks
+          python koschei.py check examples/showcase.ks
+          python koschei.py run examples/showcase.ks
+
+      - name: Commit clean result
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          rm .github/workflows/apply-v011.yml
+          git add interpreter.py semantic.py tests/test_interpreter.py tests/test_semantic.py docs/language-core.md .github/workflows/apply-v011.yml
+          git commit -m "interpreter v0.1.1 security fixes"
+          git push origin HEAD:agent/interpreter-security-v0.1.1
