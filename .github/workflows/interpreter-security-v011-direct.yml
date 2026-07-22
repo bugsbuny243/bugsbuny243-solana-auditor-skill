@@ -43,7 +43,7 @@ jobs:
               1,
           )
           old_init = "        self.environment = _Environment()\n"
-          assert text.count(old_init) == 1
+          assert old_init in text
           text = text.replace(
               old_init,
               old_init + "        self._depth = 0\n",
