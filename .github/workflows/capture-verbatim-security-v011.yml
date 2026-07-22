@@ -1,0 +1,35 @@
+name: Capture verbatim security v0.1.1 failure
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Capture exact failed run
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh run view 29945603187 --log-failed > /tmp/verbatim-security-v011.log 2>&1
+
+      - name: Publish exact log
+        run: |
+          git switch -C agent/interpreter-security-v0.1.1-report origin/main
+          cp /tmp/verbatim-security-v011.log verbatim-security-v011.log
+          git config user.name "bugsbuny243"
+          git config user.email "240416572+bugsbuny243@users.noreply.github.com"
+          git add verbatim-security-v011.log
+          git commit -m "capture verbatim security validation failure [skip ci]"
+          git push --force origin agent/interpreter-security-v0.1.1-report
