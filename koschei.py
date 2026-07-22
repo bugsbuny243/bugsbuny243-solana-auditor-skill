@@ -9,6 +9,7 @@ import sys
 from dataclasses import asdict
 from pathlib import Path
 
+from diagnostics import known_codes, lookup as lookup_diagnostic
 from interpreter import KoscheiRuntimeError, run as interpret
 from lexer import LexerError, tokenize
 from parser import ParserError, parse
@@ -50,6 +51,30 @@ def command_run(path: str) -> int:
     return interpret(program, [])
 
 
+def command_explain(code: str) -> int:
+    diagnostic = lookup_diagnostic(code)
+    if diagnostic is None:
+        print(
+            f"KOSCHEI ERROR: '{code}' bilinen bir hata kodu değil. "
+            f"Bilinen kodlar: {', '.join(known_codes())}",
+            file=sys.stderr,
+        )
+        return 1
+    print(diagnostic.render())
+    return 0
+
+
+def print_explain_hint(message: str) -> None:
+    """Hata metninde bir KS kodu varsa 'explain' komutunu önerir."""
+    diagnostic = lookup_diagnostic(message)
+    if diagnostic is not None:
+        print(
+            f"İpucu: bu hatanın açıklaması için "
+            f"'python koschei.py explain {diagnostic.code}' çalıştırın.",
+            file=sys.stderr,
+        )
+
+
 def build_parser() -> argparse.ArgumentParser:
     cli = argparse.ArgumentParser(
         prog="koschei",
@@ -66,6 +91,11 @@ def build_parser() -> argparse.ArgumentParser:
         command = subcommands.add_parser(name, help=help_text)
         command.add_argument("source", help=".ks kaynak dosyası")
 
+    explain = subcommands.add_parser(
+        "explain", help="Bir Koschei hata kodunu açıklar ve düzeltme örneği verir"
+    )
+    explain.add_argument("code", help="Hata kodu (ör. KS2403) veya kodu içeren hata metni")
+
     return cli
 
 
@@ -81,11 +111,15 @@ def main(argv: list[str] | None = None) -> int:
             return command_check(args.source)
         if args.command == "run":
             return command_run(args.source)
+        if args.command == "explain":
+            return command_explain(args.code)
     except KoscheiRuntimeError as error:
         print(f"KOSCHEI RUNTIME ERROR: {error}", file=sys.stderr)
+        print_explain_hint(str(error))
         return 1
     except (OSError, ValueError, LexerError, ParserError, SemanticError) as error:
         print(f"KOSCHEI ERROR: {error}", file=sys.stderr)
+        print_explain_hint(str(error))
         return 1
 
     return 1
