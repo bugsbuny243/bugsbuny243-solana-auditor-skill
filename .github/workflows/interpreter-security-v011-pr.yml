@@ -18,7 +18,10 @@ jobs:
           fetch-depth: 0
 
       - name: Preserve direct editor
-        run: cp .github/scripts/apply_interpreter_security_v011.py /tmp/apply_interpreter_security_v011.py
+        run: |
+          cp .github/scripts/apply_interpreter_security_v011.py /tmp/apply_interpreter_security_v011.py
+          cp .github/scripts/fix_interpreter_security_editor.py /tmp/fix_interpreter_security_editor.py
+          python /tmp/fix_interpreter_security_editor.py
 
       - name: Set up Python 3.12
         uses: actions/setup-python@v5
