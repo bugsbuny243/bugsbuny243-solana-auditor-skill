@@ -1,9 +1,9 @@
 name: Diagnostics v0.2 acceptance
 
 on:
-  pull_request:
+  push:
     branches:
-      - main
+      - agent/diagnostics-v0.2-runner
 
 jobs:
   validate:
