@@ -46,7 +46,24 @@ jobs:
           test "$actual" = "$expected"
 
       - name: Run unit tests
-        run: python -m unittest discover -s tests -v
+        id: unit_tests
+        run: |
+          set +e
+          python -m unittest discover -s tests -v > /tmp/verbatim-unit-tests.log 2>&1
+          status=$?
+          cat /tmp/verbatim-unit-tests.log
+          exit "$status"
+
+      - name: Publish exact unit-test failure
+        if: ${{ failure() && steps.unit_tests.outcome == 'failure' }}
+        run: |
+          git switch -C agent/verbatim-security-v0.1.1-report origin/main
+          cp /tmp/verbatim-unit-tests.log verbatim-unit-tests.log
+          git config user.name "bugsbuny243"
+          git config user.email "240416572+bugsbuny243@users.noreply.github.com"
+          git add verbatim-unit-tests.log
+          git commit -m "capture verbatim unit test failure [skip ci]"
+          git push --force origin agent/verbatim-security-v0.1.1-report
 
       - name: Check capability example
         run: python koschei.py check examples/capability.ks
@@ -76,5 +93,3 @@ jobs:
           git add interpreter.py semantic.py tests/test_interpreter.py tests/test_semantic.py docs/language-core.md
           git commit -m "security v0.1.1: redirect confinement (KS3402), unhandled error values (KS1401), call depth limit (KS3105)"
           git push --force-with-lease origin agent/interpreter-security-v0.1.1-direct
-
-# trigger: 2026-07-22 verbatim
