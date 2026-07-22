@@ -1,0 +1,68 @@
+test_check_accepts_valid_koschei_file (test_cli.CliTests.test_check_accepts_valid_koschei_file) ... ok
+test_check_rejects_non_koschei_extension (test_cli.CliTests.test_check_rejects_non_koschei_extension) ... ok
+test_interpreter (unittest.loader._FailedTest.test_interpreter) ... ERROR
+test_comment_content_does_not_become_tokens (test_lexer.LexerTests.test_comment_content_does_not_become_tokens) ... ok
+test_control_flow_keywords_and_bool_literals (test_lexer.LexerTests.test_control_flow_keywords_and_bool_literals) ... ok
+test_empty_interpolation_is_rejected (test_lexer.LexerTests.test_empty_interpolation_is_rejected) ... ok
+test_escaped_braces_do_not_interpolate (test_lexer.LexerTests.test_escaped_braces_do_not_interpolate) ... ok
+test_interpolated_string_produces_segments (test_lexer.LexerTests.test_interpolated_string_produces_segments) ... ok
+test_invalid_interpolation_expression_is_rejected (test_lexer.LexerTests.test_invalid_interpolation_expression_is_rejected) ... ok
+test_keywords_types_symbols_and_values (test_lexer.LexerTests.test_keywords_types_symbols_and_values) ... ok
+test_logical_and_bang_operators (test_lexer.LexerTests.test_logical_and_bang_operators) ... ok
+test_plain_string_stays_plain (test_lexer.LexerTests.test_plain_string_stays_plain) ... ok
+test_unterminated_string_reports_location (test_lexer.LexerTests.test_unterminated_string_reports_location) ... ok
+test_bare_or_return_before_next_statement (test_parser.ParserTests.test_bare_or_return_before_next_statement) ... ok
+test_binary_operator_precedence (test_parser.ParserTests.test_binary_operator_precedence) ... ok
+test_comparison_and_logical_operators (test_parser.ParserTests.test_comparison_and_logical_operators) ... ok
+test_if_else_if_else_chain (test_parser.ParserTests.test_if_else_if_else_chain) ... ok
+test_interpolated_string_builds_member_chain (test_parser.ParserTests.test_interpolated_string_builds_member_chain) ... ok
+test_or_block_expression (test_parser.ParserTests.test_or_block_expression) ... ok
+test_or_default_expression (test_parser.ParserTests.test_or_default_expression) ... ok
+test_parses_functions_parameters_and_union_return_type (test_parser.ParserTests.test_parses_functions_parameters_and_union_return_type) ... ok
+test_parses_or_return_and_mutability_metadata (test_parser.ParserTests.test_parses_or_return_and_mutability_metadata) ... ok
+test_reports_missing_closing_brace (test_parser.ParserTests.test_reports_missing_closing_brace) ... ok
+test_unary_minus (test_parser.ParserTests.test_unary_minus) ... ok
+test_while_statement (test_parser.ParserTests.test_while_statement) ... ok
+test_accepts_assignment_to_mutable_variable (test_semantic.SemanticTests.test_accepts_assignment_to_mutable_variable) ... ok
+test_accepts_network_access_with_net_caps (test_semantic.SemanticTests.test_accepts_network_access_with_net_caps) ... ok
+test_arithmetic_type_mismatch_is_rejected (test_semantic.SemanticTests.test_arithmetic_type_mismatch_is_rejected) ... ok
+test_block_scoped_let_does_not_leak (test_semantic.SemanticTests.test_block_scoped_let_does_not_leak) ... ok
+test_error_bound_with_let_is_accepted (test_semantic.SemanticTests.test_error_bound_with_let_is_accepted) ... ok
+test_error_handled_with_or_block_is_accepted (test_semantic.SemanticTests.test_error_handled_with_or_block_is_accepted) ... ok
+test_if_condition_must_be_bool (test_semantic.SemanticTests.test_if_condition_must_be_bool) ... ok
+test_interpolation_checks_identifiers (test_semantic.SemanticTests.test_interpolation_checks_identifiers) ... ok
+test_interpolation_with_known_member_path_passes (test_semantic.SemanticTests.test_interpolation_with_known_member_path_passes) ... ok
+test_narrowed_capability_cannot_be_rewidened (test_semantic.SemanticTests.test_narrowed_capability_cannot_be_rewidened) ... ok
+test_narrowed_capability_passed_to_function_keeps_permissions (test_semantic.SemanticTests.test_narrowed_capability_passed_to_function_keeps_permissions) ... ok
+test_or_else_and_or_block_pass (test_semantic.SemanticTests.test_or_else_and_or_block_pass) ... ok
+test_read_only_capability_cannot_write (test_semantic.SemanticTests.test_read_only_capability_cannot_write) ... ok
+test_rejects_assignment_to_immutable_variable (test_semantic.SemanticTests.test_rejects_assignment_to_immutable_variable) ... ok
+test_rejects_network_access_without_net_caps (test_semantic.SemanticTests.test_rejects_network_access_without_net_caps) ... ok
+test_root_capability_cannot_do_io_directly (test_semantic.SemanticTests.test_root_capability_cannot_do_io_directly) ... ok
+test_system_caps_can_create_restricted_net_caps (test_semantic.SemanticTests.test_system_caps_can_create_restricted_net_caps) ... ok
+test_system_caps_has_no_direct_operations (test_semantic.SemanticTests.test_system_caps_has_no_direct_operations) ... ok
+test_unhandled_capability_call_is_rejected (test_semantic.SemanticTests.test_unhandled_capability_call_is_rejected) ... ok
+test_unhandled_error_constructor_is_rejected (test_semantic.SemanticTests.test_unhandled_error_constructor_is_rejected) ... ok
+test_unhandled_fallible_function_call_is_rejected (test_semantic.SemanticTests.test_unhandled_fallible_function_call_is_rejected) ... ok
+test_while_with_comparison_condition_passes (test_semantic.SemanticTests.test_while_with_comparison_condition_passes) ... ok
+
+======================================================================
+ERROR: test_interpreter (unittest.loader._FailedTest.test_interpreter)
+----------------------------------------------------------------------
+ImportError: Failed to import test module: test_interpreter
+Traceback (most recent call last):
+  File "/opt/hostedtoolcache/Python/3.12.13/x64/lib/python3.12/unittest/loader.py", line 396, in _find_test_path
+    module = self._get_module_from_name(name)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/hostedtoolcache/Python/3.12.13/x64/lib/python3.12/unittest/loader.py", line 339, in _get_module_from_name
+    __import__(name)
+  File "/home/runner/work/koschei-lang/koschei-lang/tests/test_interpreter.py", line 31
+    self.assertEqual(output, "Merhaba Koschei
+                             ^
+SyntaxError: unterminated string literal (detected at line 31)
+
+
+----------------------------------------------------------------------
+Ran 47 tests in 0.008s
+
+FAILED (errors=1)
