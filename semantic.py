@@ -5,6 +5,7 @@ Hata kodları:
     KS1102  Aynı scope içinde tekrar tanım
     KS1201  Immutable değere atama
     KS1301  Tip uyuşmazlığı
+    KS1401  Ele alınmayan hata değeri
     KS2401  Gerekli yetki bu scope içinde mevcut değil
     KS2402  Kök yetki doğrudan kullanılamaz (önce allow ile daraltılmalı)
     KS2403  Daraltılmış yetki yeniden genişletilemez
@@ -48,7 +49,6 @@ from ast_nodes import (
 )
 
 
-# SystemCaps üzerindeki kök yetki alanları
 CAPABILITY_MEMBERS = {
     "net": "NetRoot",
     "disk": "DiskRoot",
@@ -56,7 +56,6 @@ CAPABILITY_MEMBERS = {
     "process": "ProcessRoot",
 }
 
-# Kök tipler: yalnızca daraltma metotları. Sonuç tipi eşlemesi.
 ROOT_METHODS: dict[str, dict[str, str]] = {
     "NetRoot": {"allow": "NetCaps"},
     "DiskRoot": {"allow": "DiskCaps", "allow_read_only": "DiskReadCaps"},
@@ -64,7 +63,6 @@ ROOT_METHODS: dict[str, dict[str, str]] = {
     "ProcessRoot": {"allow": "ProcessCaps"},
 }
 
-# Daraltılmış tipler: yalnızca G/Ç metotları. allow YOKTUR.
 NARROWED_METHODS: dict[str, set[str]] = {
     "NetCaps": {"get", "post", "put", "delete", "request"},
     "DiskCaps": {"read", "write", "delete", "list", "read_file", "write_file"},
@@ -75,7 +73,6 @@ NARROWED_METHODS: dict[str, set[str]] = {
 
 NARROWING_METHODS = {"allow", "allow_read_only"}
 
-# Herhangi bir yerde çağrılması yetki gerektiren metot adları
 GUARDED_METHODS: set[str] = set()
 for _methods in NARROWED_METHODS.values():
     GUARDED_METHODS.update(_methods)
@@ -159,12 +156,7 @@ class SemanticChecker:
         finally:
             self.scopes.pop()
 
-    # ------------------------------------------------------------------
-    # Statement denetimi
-    # ------------------------------------------------------------------
-
     def _check_block(self, block: Block) -> None:
-        """Yeni bir scope açar; blok içi 'let' tanımları dışarı sızmaz."""
         self.scopes.append({})
         try:
             self._check_statements(block)
@@ -196,6 +188,14 @@ class SemanticChecker:
 
         if isinstance(statement, ExpressionStatement):
             self._check_expression(statement.expression)
+            if self._is_fallible_call(statement.expression):
+                raise SemanticError(
+                    "KS1401",
+                    "Hata dönebilen çağrının sonucu ele alınmalıdır "
+                    "('let ... = ...', 'or return', 'or varsayılan' "
+                    "veya 'or { ... }' kullanın).",
+                    statement.location,
+                )
             return
 
         if isinstance(statement, IfStatement):
@@ -215,10 +215,6 @@ class SemanticChecker:
             return
 
         raise AssertionError(f"Desteklenmeyen statement: {type(statement).__name__}")
-
-    # ------------------------------------------------------------------
-    # Expression denetimi
-    # ------------------------------------------------------------------
 
     def _check_expression(self, expression: Expression) -> str | None:
         if isinstance(expression, Literal):
@@ -255,8 +251,6 @@ class SemanticChecker:
                 self.capability_count += 1
                 return CAPABILITY_MEMBERS[expression.member]
 
-            # Yetki tiplerinin metotları yalnızca çağrı içinde anlamlıdır;
-            # 'let f = api.get' gibi erişimler yetki tipini SIZDIRMAZ.
             if object_type in CAPABILITY_TYPES:
                 return None
 
@@ -284,7 +278,6 @@ class SemanticChecker:
             if expression.operator == "!":
                 self._require_bool(operand_type, "'!' işleci", expression.location)
                 return "Bool"
-            # '-' işleci
             if operand_type is not None and operand_type not in NUMERIC_TYPES:
                 raise SemanticError(
                     "KS1301",
@@ -378,17 +371,12 @@ class SemanticChecker:
 
         return None
 
-    # ------------------------------------------------------------------
-    # Yetki (capability) denetimi
-    # ------------------------------------------------------------------
-
     def _check_method_call(
         self,
         receiver_type: str | None,
         method_name: str,
         location: SourceLocation,
     ) -> str | None:
-        # 1) Kök yetki: yalnızca daraltma metotları.
         if receiver_type in ROOT_METHODS:
             mapping = ROOT_METHODS[receiver_type]
             if method_name in mapping:
@@ -401,7 +389,6 @@ class SemanticChecker:
                 location,
             )
 
-        # 2) Daraltılmış yetki: G/Ç serbest, yeniden genişletme yasak.
         if receiver_type in NARROWED_METHODS:
             if method_name in NARROWING_METHODS:
                 raise SemanticError(
@@ -418,7 +405,6 @@ class SemanticChecker:
                 location,
             )
 
-        # 3) SystemCaps üzerinde doğrudan işlem yok.
         if receiver_type == "SystemCaps":
             raise SemanticError(
                 "KS2402",
@@ -427,7 +413,6 @@ class SemanticChecker:
                 location,
             )
 
-        # 4) Yetki gerektiren metot, yetkisiz bir nesne üzerinde.
         if method_name in GUARDED_METHODS:
             raise SemanticError(
                 "KS2401",
@@ -437,9 +422,36 @@ class SemanticChecker:
 
         return None
 
-    # ------------------------------------------------------------------
-    # Yardımcılar
-    # ------------------------------------------------------------------
+    def _is_fallible_call(self, expression: Expression) -> bool:
+        if not isinstance(expression, CallExpression):
+            return False
+
+        callee = expression.callee
+        if isinstance(callee, Identifier):
+            if callee.name == "Error":
+                return True
+            function = self.functions.get(callee.name)
+            return (
+                function is not None
+                and function.return_type is not None
+                and "Error" in function.return_type.names
+            )
+
+        if isinstance(callee, MemberExpression):
+            return self._receiver_type(callee.object) in NARROWED_METHODS
+
+        return False
+
+    def _receiver_type(self, expression: Expression) -> str | None:
+        if isinstance(expression, Identifier):
+            symbol = self._resolve(expression.name)
+            return symbol.type_name if symbol is not None else None
+        if isinstance(expression, MemberExpression):
+            object_type = self._receiver_type(expression.object)
+            if object_type == "SystemCaps" and expression.member in CAPABILITY_MEMBERS:
+                return CAPABILITY_MEMBERS[expression.member]
+            return None
+        return None
 
     def _require_bool(
         self, type_name: str | None, subject: str, location: SourceLocation

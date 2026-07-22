@@ -270,12 +270,41 @@ class DiskCaps(_DiskCapability):
         return KsUnit
 
 
+class _ScopedRedirectHandler(urllib.request.HTTPRedirectHandler):
+    """Yönlendirmeyi yalnızca aynı origin içinde izler.
+
+    Kapsam dışı bir yönlendirme hedefi görülürse istek TAKİP EDİLMEZ ve
+    _ScopedRedirectDenied yükseltilir; NetCaps.get bunu KS3402 hata DEĞERİNE
+    çevirir. Böylece izinli sunucu 302 ile başka bir host'a yönlendirse bile
+    yetki sınırı aşılamaz.
+    """
+
+    max_redirections = 5
+
+    def __init__(self, origin_key: tuple[str, str, int | None] | None) -> None:
+        self.origin_key = origin_key
+
+    def redirect_request(self, request, fp, code, msg, headers, newurl):
+        if self.origin_key is None or _origin_key(newurl) != self.origin_key:
+            raise _ScopedRedirectDenied(newurl)
+        return super().redirect_request(request, fp, code, msg, headers, newurl)
+
+
+class _ScopedRedirectDenied(Exception):
+    def __init__(self, target: str) -> None:
+        self.target = target
+        super().__init__(target)
+
+
 class NetCaps(_NarrowedCapability):
-    __slots__ = ("origin", "origin_key")
+    __slots__ = ("origin", "origin_key", "_opener")
 
     def __init__(self, origin: str) -> None:
         self.origin = origin
         self.origin_key = _origin_key(origin)
+        self._opener = urllib.request.build_opener(
+            _ScopedRedirectHandler(self.origin_key)
+        )
 
     def _allows(self, url: str) -> bool:
         return self.origin_key is not None and _origin_key(url) == self.origin_key
@@ -287,11 +316,20 @@ class NetCaps(_NarrowedCapability):
             )
         try:
             request = urllib.request.Request(url, method="GET")
-            with urllib.request.urlopen(request, timeout=10) as response:
+            with self._opener.open(request, timeout=10) as response:
                 charset = response.headers.get_content_charset() or "utf-8"
                 body = response.read().decode(charset, errors="replace")
                 return Response(body, int(response.status))
+        except _ScopedRedirectDenied as denied:
+            return KsError(
+                f"KS3402: Ağ yönlendirmesi kapsam dışına çıktı: {denied.target}"
+            )
         except (OSError, urllib.error.URLError) as error:
+            if isinstance(getattr(error, "reason", None), _ScopedRedirectDenied):
+                return KsError(
+                    "KS3402: Ağ yönlendirmesi kapsam dışına çıktı: "
+                    f"{error.reason.target}"
+                )
             return KsError(f"API isteği başarısız: {error}")
 
     @staticmethod
@@ -362,8 +400,32 @@ class Interpreter:
             declaration.name: declaration for declaration in program.declarations
         }
         self.environment = _Environment()
+        self._depth = 0
+
+    MAX_CALL_DEPTH = 512
+
+    # Her Koschei çağrısı birden fazla Python çerçevesi kullanır; KS3105'in
+    # Python'un kendi RecursionError'ından ÖNCE devreye girmesi için yorumlayıcı
+    # çalışırken Python limiti yükseltilir.
+    _PYTHON_RECURSION_HEADROOM = 20000
 
     def execute_main(self) -> Any:
+        previous_limit = sys.getrecursionlimit()
+        if previous_limit < self._PYTHON_RECURSION_HEADROOM:
+            sys.setrecursionlimit(self._PYTHON_RECURSION_HEADROOM)
+        try:
+            return self._execute_main()
+        except RecursionError as error:  # güvenlik ağı: KS koduna çevrilir
+            raise KoscheiRuntimeError(
+                "KS3105",
+                f"Çağrı derinliği sınırı aşıldı ({self.MAX_CALL_DEPTH}); "
+                "sonsuz özyineleme olabilir.",
+                SourceLocation(1, 1),
+            ) from error
+        finally:
+            sys.setrecursionlimit(previous_limit)
+
+    def _execute_main(self) -> Any:
         main = self.functions.get("main")
         if main is None:
             raise KoscheiRuntimeError(
@@ -391,8 +453,16 @@ class Interpreter:
                 f"{len(arguments)} verildi.",
                 function.location,
             )
+        if self._depth >= self.MAX_CALL_DEPTH:
+            raise KoscheiRuntimeError(
+                "KS3105",
+                f"Çağrı derinliği sınırı aşıldı ({self.MAX_CALL_DEPTH}); "
+                "sonsuz özyineleme olabilir.",
+                function.location,
+            )
         previous = self.environment
         self.environment = _Environment()
+        self._depth += 1
         try:
             for parameter, value in zip(function.parameters, arguments):
                 self.environment.define(parameter.name, value, False)
@@ -401,6 +471,7 @@ class Interpreter:
             except _ReturnSignal as signal:
                 return signal.value
         finally:
+            self._depth -= 1
             self.environment = previous
 
     def _execute_block(self, block: Block, *, create_scope: bool = True) -> Any:
@@ -410,8 +481,6 @@ class Interpreter:
             result: Any = KsUnit
             for statement in block.statements:
                 result = self._execute_statement(statement)
-                if isinstance(result, KsError):
-                    return result
             return result
         finally:
             if create_scope:

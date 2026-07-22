@@ -7,7 +7,11 @@ import unittest
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 
-from interpreter import DiskReadCaps, KsError, run
+import http.server
+import socketserver
+import threading
+
+from interpreter import DiskReadCaps, KoscheiRuntimeError, KsError, NetCaps, run
 from parser import parse
 
 
@@ -178,6 +182,102 @@ class InterpreterTests(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertEqual(output, "")
         self.assertIn("KOSCHEI RUNTIME ERROR", error)
+
+    def test_infinite_recursion_raises_ks3105_not_python_error(self) -> None:
+        source = (
+            "fn boom(n: Int) -> Int { return boom(n + 1) } "
+            "fn main() { let x = boom(0) }"
+        )
+        with self.assertRaises(KoscheiRuntimeError) as context:
+            self.run_source(source)
+        self.assertEqual(context.exception.code, "KS3105")
+
+    def test_statement_after_handled_error_still_runs(self) -> None:
+        source = (
+            'fn main(caps: SystemCaps) { '
+            'let ro = caps.disk.allow_read_only("/tmp") '
+            'let x = ro.read("/etc/passwd") or "engellendi" '
+            'println("1: {x}") '
+            'println("2: devam") '
+            '}'
+        )
+        code, output, _ = self.run_source(source)
+        self.assertEqual(code, 0)
+        self.assertIn("2: devam", output)
+
+
+class RedirectConfinementTests(unittest.TestCase):
+    """Yönlendirmeler yalnızca izinli origin içinde izlenir (KS3402)."""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        class Outside(http.server.BaseHTTPRequestHandler):
+            def do_GET(self) -> None:
+                self.send_response(200)
+                self.send_header("Content-Type", "text/plain")
+                self.end_headers()
+                self.wfile.write(b"KAPSAM-DISI-VERI")
+
+            def log_message(self, *arguments: object) -> None:
+                pass
+
+        cls.outside = socketserver.TCPServer(("127.0.0.1", 0), Outside)
+        cls.outside_port = cls.outside.server_address[1]
+
+        outside_port = cls.outside_port
+
+        class Allowed(http.server.BaseHTTPRequestHandler):
+            def do_GET(self) -> None:
+                if self.path == "/outside":
+                    self.send_response(302)
+                    self.send_header(
+                        "Location", f"http://127.0.0.1:{outside_port}/steal"
+                    )
+                    self.end_headers()
+                    return
+                if self.path == "/inside":
+                    self.send_response(302)
+                    self.send_header("Location", "/ok")
+                    self.end_headers()
+                    return
+                self.send_response(200)
+                self.send_header("Content-Type", "text/plain")
+                self.end_headers()
+                self.wfile.write(b"IZINLI-VERI")
+
+            def log_message(self, *arguments: object) -> None:
+                pass
+
+        cls.allowed = socketserver.TCPServer(("127.0.0.1", 0), Allowed)
+        cls.allowed_port = cls.allowed.server_address[1]
+
+        for server in (cls.outside, cls.allowed):
+            threading.Thread(target=server.serve_forever, daemon=True).start()
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        for server in (cls.outside, cls.allowed):
+            server.shutdown()
+            server.server_close()
+
+    def net(self) -> NetCaps:
+        return NetCaps(f"http://127.0.0.1:{self.allowed_port}")
+
+    def test_plain_request_inside_origin_succeeds(self) -> None:
+        response = self.net().get(f"http://127.0.0.1:{self.allowed_port}/ok")
+        self.assertNotIsInstance(response, KsError)
+        self.assertEqual(response.text(), "IZINLI-VERI")
+
+    def test_same_origin_redirect_is_followed(self) -> None:
+        response = self.net().get(f"http://127.0.0.1:{self.allowed_port}/inside")
+        self.assertNotIsInstance(response, KsError)
+        self.assertEqual(response.text(), "IZINLI-VERI")
+
+    def test_cross_origin_redirect_is_denied(self) -> None:
+        result = self.net().get(f"http://127.0.0.1:{self.allowed_port}/outside")
+        self.assertIsInstance(result, KsError)
+        self.assertIn("KS3402", result.message)
+        self.assertNotIn("KAPSAM-DISI-VERI", result.message)
 
 
 if __name__ == "__main__":

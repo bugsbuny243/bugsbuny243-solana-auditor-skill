@@ -82,10 +82,22 @@ let c = f() or { println("logla") }  // blokla ele al
 | KS1102 | Aynı scope içinde tekrar tanım |
 | KS1201 | Immutable değere atama |
 | KS1301 | Tip uyuşmazlığı (`"abc" + 5`, Bool olmayan `if` koşulu vb.) |
+| KS1401 | Ele alınmayan hata değeri (sonuç `let` ile bağlanmalı ya da `or` ile ele alınmalı) |
 | KS2401 | Gerekli yetki bu scope içinde mevcut değil |
 | KS2402 | Kök yetki doğrudan kullanılamaz; önce daraltılmalı |
 | KS2403 | Daraltılmış yetki yeniden genişletilemez |
 | KS2404 | Bu yetki türü ilgili işleme izin vermez |
+
+Runtime (çalışma anı) hata kodları:
+
+| Kod | Anlamı |
+|---|---|
+| KS3101 | Tanımsız isim / geçersiz çağrı (savunma katmanı) |
+| KS3105 | Çağrı derinliği sınırı aşıldı (512) — sonsuz özyineleme koruması |
+| KS3201 | Immutable değere runtime ataması (savunma katmanı) |
+| KS3402 | Kapsam dışı erişim: disk yolu, ağ origin'i **veya kapsam dışına çıkan ağ yönlendirmesi** |
+| KS3403 | Runtime'da daraltılmış yetkiyi genişletme girişimi |
+| KS3404 | Yetki türünün izin vermediği işlem (ör. salt-okunur yetkiyle yazma) |
 
 ## v0.1 compiler hattı
 

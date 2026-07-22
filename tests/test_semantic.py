@@ -39,12 +39,7 @@ class SemanticTests(unittest.TestCase):
         report = check(program)
         self.assertGreaterEqual(report.capability_values, 2)
 
-    # ------------------------------------------------------------------
-    # Yetki modeli saldırı senaryoları
-    # ------------------------------------------------------------------
-
     def test_root_capability_cannot_do_io_directly(self) -> None:
-        # KS2402: caps.disk allow'suz doğrudan okuyamaz.
         program = parse(
             'fn main(caps: SystemCaps) { '
             'let raw = caps.disk '
@@ -55,7 +50,6 @@ class SemanticTests(unittest.TestCase):
             check(program)
 
     def test_narrowed_capability_cannot_be_rewidened(self) -> None:
-        # KS2403: daraltılmış jeton üzerinde allow yasak.
         program = parse(
             'fn main(caps: SystemCaps) { '
             'let ro = caps.disk.allow_read_only("/tmp/safe") '
@@ -66,7 +60,6 @@ class SemanticTests(unittest.TestCase):
             check(program)
 
     def test_read_only_capability_cannot_write(self) -> None:
-        # KS2404: DiskReadCaps yazma iznine sahip değildir.
         program = parse(
             'fn main(caps: SystemCaps) { '
             'let ro = caps.disk.allow_read_only("/tmp/safe") '
@@ -95,10 +88,6 @@ class SemanticTests(unittest.TestCase):
         with self.assertRaisesRegex(SemanticError, "KS2402"):
             check(program)
 
-    # ------------------------------------------------------------------
-    # Tip denetimi
-    # ------------------------------------------------------------------
-
     def test_arithmetic_type_mismatch_is_rejected(self) -> None:
         program = parse('fn main() { let x = "abc" + 5 }')
         with self.assertRaisesRegex(SemanticError, "KS1301"):
@@ -117,7 +106,6 @@ class SemanticTests(unittest.TestCase):
         self.assertEqual(report.variables, 1)
 
     def test_block_scoped_let_does_not_leak(self) -> None:
-        # if bloğunda tanımlanan değişken blok dışında görünmez.
         program = parse(
             "fn main() { if true { let inner = 1 } let x = inner }"
         )
@@ -148,6 +136,49 @@ class SemanticTests(unittest.TestCase):
         )
         report = check(program)
         self.assertEqual(report.functions, 2)
+
+    def test_unhandled_capability_call_is_rejected(self) -> None:
+        program = parse(
+            'fn main(caps: SystemCaps) { '
+            'let ro = caps.disk.allow_read_only("/tmp") '
+            'ro.read("/etc/passwd") '
+            '}'
+        )
+        with self.assertRaisesRegex(SemanticError, "KS1401"):
+            check(program)
+
+    def test_unhandled_error_constructor_is_rejected(self) -> None:
+        program = parse('fn main() { Error("bos") }')
+        with self.assertRaisesRegex(SemanticError, "KS1401"):
+            check(program)
+
+    def test_unhandled_fallible_function_call_is_rejected(self) -> None:
+        program = parse(
+            'fn f() -> Int or Error { return Error("x") } '
+            'fn main() { f() }'
+        )
+        with self.assertRaisesRegex(SemanticError, "KS1401"):
+            check(program)
+
+    def test_error_bound_with_let_is_accepted(self) -> None:
+        program = parse(
+            'fn main(caps: SystemCaps) { '
+            'let ro = caps.disk.allow_read_only("/tmp") '
+            'let x = ro.read("/etc/passwd") or "" '
+            '}'
+        )
+        report = check(program)
+        self.assertEqual(report.functions, 1)
+
+    def test_error_handled_with_or_block_is_accepted(self) -> None:
+        program = parse(
+            'fn main(caps: SystemCaps) { '
+            'let ro = caps.disk.allow_read_only("/tmp") '
+            'ro.read("/etc/passwd") or { println("ele alındı") } '
+            '}'
+        )
+        report = check(program)
+        self.assertEqual(report.functions, 1)
 
 
 if __name__ == "__main__":
