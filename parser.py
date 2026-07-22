@@ -1,4 +1,15 @@
-"""Koschei (.ks) için recursive-descent parser."""
+"""Koschei (.ks) için recursive-descent parser.
+
+Öncelik zinciri (düşükten yükseğe):
+    assignment -> or_handler -> logical_or (||) -> logical_and (&&)
+    -> equality (== !=) -> comparison (< <= > >=)
+    -> term (+ -) -> factor (* /) -> unary (! -) -> call -> primary
+
+'or' üç biçimde ele alınır:
+    ifade or return [hata]   -> OrReturnExpression
+    ifade or { ... }         -> OrBlockExpression
+    ifade or varsayilan      -> OrElseExpression
+"""
 
 from __future__ import annotations
 
@@ -12,12 +23,12 @@ from ast_nodes import (
     FunctionDeclaration,
     Identifier,
     IfStatement,
+    InterpolatedString,
     LetStatement,
     Literal,
-    MatchArm,
-    MatchPattern,
-    MatchStatement,
     MemberExpression,
+    OrBlockExpression,
+    OrElseExpression,
     OrReturnExpression,
     Parameter,
     Program,
@@ -35,6 +46,20 @@ class ParserError(SyntaxError):
     """Koschei token akışı geçerli bir programa dönüştürülemediğinde yükseltilir."""
 
 
+# 'or return' sonrasında hata ifadesi ARAMAYACAĞIMIZ tokenlar:
+# blok sonu, noktalı virgül veya yeni bir statement başlangıcı.
+_OR_RETURN_STOP = {
+    TokenType.RIGHT_BRACE,
+    TokenType.SEMICOLON,
+    TokenType.LET,
+    TokenType.RETURN,
+    TokenType.IF,
+    TokenType.WHILE,
+    TokenType.FN,
+    TokenType.EOF,
+}
+
+
 class Parser:
     def __init__(self, tokens: list[Token]) -> None:
         self.tokens = tokens
@@ -46,22 +71,30 @@ class Parser:
 
     def parse(self) -> Program:
         declarations: list[FunctionDeclaration] = []
+
         while not self._is_at_end():
             declarations.append(self._function_declaration())
+
         return Program(tuple(declarations))
 
     def _function_declaration(self) -> FunctionDeclaration:
         fn_token = self._consume(TokenType.FN, "Fonksiyon 'fn' ile başlamalıdır.")
         name = self._consume(TokenType.IDENTIFIER, "Fonksiyon adı bekleniyordu.")
         self._consume(TokenType.LEFT_PAREN, "Fonksiyon adından sonra '(' bekleniyordu.")
+
         parameters: list[Parameter] = []
         if not self._check(TokenType.RIGHT_PAREN):
             while True:
                 parameters.append(self._parameter())
                 if not self._match(TokenType.COMMA):
                     break
+
         self._consume(TokenType.RIGHT_PAREN, "Parametrelerden sonra ')' bekleniyordu.")
-        return_type = self._type_ref() if self._match(TokenType.ARROW) else None
+
+        return_type: TypeRef | None = None
+        if self._match(TokenType.ARROW):
+            return_type = self._type_ref()
+
         body = self._block()
         return FunctionDeclaration(
             name=name.value,
@@ -74,37 +107,26 @@ class Parser:
     def _parameter(self) -> Parameter:
         name = self._consume(TokenType.IDENTIFIER, "Parametre adı bekleniyordu.")
         self._consume(TokenType.COLON, "Parametre adından sonra ':' bekleniyordu.")
-        return Parameter(name.value, self._type_ref(), self._location(name))
+        type_ref = self._type_ref()
+        return Parameter(name.value, type_ref, self._location(name))
 
     def _type_ref(self) -> TypeRef:
-        first = self._single_type_ref()
-        alternatives = [first]
-        while self._match(TokenType.OR):
-            alternatives.append(self._single_type_ref())
-        if len(alternatives) == 1:
-            return first
-        return TypeRef(
-            name="Union",
-            location=first.location,
-            alternatives=tuple(alternatives),
-        )
+        first = self._consume(TokenType.TYPE, "Tip adı bekleniyordu.")
+        names = [first.value]
 
-    def _single_type_ref(self) -> TypeRef:
-        token = self._consume(TokenType.TYPE, "Tip adı bekleniyordu.")
-        arguments: list[TypeRef] = []
-        if self._match(TokenType.LESS):
-            while True:
-                arguments.append(self._type_ref())
-                if not self._match(TokenType.COMMA):
-                    break
-            self._consume(TokenType.GREATER, "Generic tip sonunda '>' bekleniyordu.")
-        return TypeRef(token.value, self._location(token), tuple(arguments))
+        while self._match(TokenType.OR):
+            next_type = self._consume(TokenType.TYPE, "'or' sonrasında tip adı bekleniyordu.")
+            names.append(next_type.value)
+
+        return TypeRef(tuple(names), self._location(first))
 
     def _block(self) -> Block:
         self._consume(TokenType.LEFT_BRACE, "Blok başlangıcı için '{' bekleniyordu.")
         statements: list[Statement] = []
+
         while not self._check(TokenType.RIGHT_BRACE) and not self._is_at_end():
             statements.append(self._statement())
+
         self._consume(TokenType.RIGHT_BRACE, "Blok sonunda '}' bekleniyordu.")
         return Block(tuple(statements))
 
@@ -117,8 +139,7 @@ class Parser:
             return self._if_statement(self._previous())
         if self._match(TokenType.WHILE):
             return self._while_statement(self._previous())
-        if self._match(TokenType.MATCH):
-            return self._match_statement(self._previous())
+
         expression = self._expression()
         self._match(TokenType.SEMICOLON)
         return ExpressionStatement(expression, expression.location)
@@ -129,78 +150,107 @@ class Parser:
         self._consume(TokenType.EQUAL, "Değişken tanımında '=' bekleniyordu.")
         value = self._expression()
         self._match(TokenType.SEMICOLON)
-        return LetStatement(name.value, is_mutable, value, self._location(let_token))
+        return LetStatement(
+            name=name.value,
+            is_mutable=is_mutable,
+            value=value,
+            location=self._location(let_token),
+        )
 
     def _return_statement(self, return_token: Token) -> ReturnStatement:
         value: Expression | None = None
-        if not self._check(TokenType.RIGHT_BRACE) and not self._check(TokenType.SEMICOLON):
+        if self._peek().type not in _OR_RETURN_STOP:
             value = self._expression()
         self._match(TokenType.SEMICOLON)
         return ReturnStatement(value, self._location(return_token))
 
     def _if_statement(self, if_token: Token) -> IfStatement:
         condition = self._expression()
-        then_branch = self._block()
-        else_branch = self._block() if self._match(TokenType.ELSE) else None
-        return IfStatement(condition, then_branch, else_branch, self._location(if_token))
+        then_block = self._block()
+
+        else_branch: Block | IfStatement | None = None
+        if self._match(TokenType.ELSE):
+            if self._match(TokenType.IF):
+                else_branch = self._if_statement(self._previous())
+            else:
+                else_branch = self._block()
+
+        return IfStatement(condition, then_block, else_branch, self._location(if_token))
 
     def _while_statement(self, while_token: Token) -> WhileStatement:
         condition = self._expression()
-        return WhileStatement(condition, self._block(), self._location(while_token))
+        body = self._block()
+        return WhileStatement(condition, body, self._location(while_token))
 
-    def _match_statement(self, match_token: Token) -> MatchStatement:
-        value = self._expression()
-        self._consume(TokenType.LEFT_BRACE, "match değeri sonrasında '{' bekleniyordu.")
-        arms: list[MatchArm] = []
-        while not self._check(TokenType.RIGHT_BRACE) and not self._is_at_end():
-            pattern = self._match_pattern()
-            self._consume(TokenType.FAT_ARROW, "match deseni sonrasında '=>' bekleniyordu.")
-            arms.append(MatchArm(pattern, self._block(), pattern.location))
-        self._consume(TokenType.RIGHT_BRACE, "match sonunda '}' bekleniyordu.")
-        return MatchStatement(value, tuple(arms), self._location(match_token))
-
-    def _match_pattern(self) -> MatchPattern:
-        token = self._consume(TokenType.TYPE, "Some, None, Ok veya Err deseni bekleniyordu.")
-        binding: str | None = None
-        if self._match(TokenType.LEFT_PAREN):
-            name = self._consume(TokenType.IDENTIFIER, "Desen içinde bağlanacak isim bekleniyordu.")
-            binding = name.value
-            self._consume(TokenType.RIGHT_PAREN, "Desen bağından sonra ')' bekleniyordu.")
-        return MatchPattern(token.value, binding, self._location(token))
+    # ------------------------------------------------------------------
+    # İfadeler
+    # ------------------------------------------------------------------
 
     def _expression(self) -> Expression:
         return self._assignment()
 
     def _assignment(self) -> Expression:
-        expression = self._or_return()
+        expression = self._or_handler()
+
         if self._match(TokenType.EQUAL):
             equals = self._previous()
             value = self._assignment()
             if not isinstance(expression, (Identifier, MemberExpression)):
                 self._error(equals, "Geçersiz atama hedefi.")
             return AssignmentExpression(expression, value, self._location(equals))
+
         return expression
 
-    def _or_return(self) -> Expression:
-        expression = self._equality()
-        if self._match(TokenType.OR):
+    def _or_handler(self) -> Expression:
+        expression = self._logical_or()
+
+        while self._match(TokenType.OR):
             or_token = self._previous()
-            self._consume(TokenType.RETURN, "'or' sonrasında 'return' bekleniyor.")
-            error: Expression | None = None
-            statement_boundaries = (
-                TokenType.RIGHT_BRACE,
-                TokenType.SEMICOLON,
-                TokenType.LET,
-                TokenType.RETURN,
-                TokenType.IF,
-                TokenType.WHILE,
-                TokenType.MATCH,
-                TokenType.ELSE,
-                TokenType.EOF,
+
+            # ifade or return [hata]
+            if self._match(TokenType.RETURN):
+                error: Expression | None = None
+                if self._peek().type not in _OR_RETURN_STOP:
+                    error = self._logical_or()
+                expression = OrReturnExpression(
+                    expression, error, self._location(or_token)
+                )
+                continue
+
+            # ifade or { ... }
+            if self._check(TokenType.LEFT_BRACE):
+                handler = self._block()
+                expression = OrBlockExpression(
+                    expression, handler, self._location(or_token)
+                )
+                continue
+
+            # ifade or varsayilan
+            fallback = self._logical_or()
+            expression = OrElseExpression(
+                expression, fallback, self._location(or_token)
             )
-            if not any(self._check(token_type) for token_type in statement_boundaries):
-                error = self._equality()
-            return OrReturnExpression(expression, error, self._location(or_token))
+
+        return expression
+
+    def _logical_or(self) -> Expression:
+        expression = self._logical_and()
+        while self._match(TokenType.PIPE_PIPE):
+            operator = self._previous()
+            right = self._logical_and()
+            expression = BinaryExpression(
+                expression, "||", right, self._location(operator)
+            )
+        return expression
+
+    def _logical_and(self) -> Expression:
+        expression = self._equality()
+        while self._match(TokenType.AMP_AMP):
+            operator = self._previous()
+            right = self._equality()
+            expression = BinaryExpression(
+                expression, "&&", right, self._location(operator)
+            )
         return expression
 
     def _equality(self) -> Expression:
@@ -249,13 +299,17 @@ class Parser:
         return expression
 
     def _unary(self) -> Expression:
-        if self._match(TokenType.MINUS):
+        if self._match(TokenType.BANG, TokenType.MINUS):
             operator = self._previous()
-            return UnaryExpression(operator.value, self._unary(), self._location(operator))
+            operand = self._unary()
+            return UnaryExpression(
+                operator.value, operand, self._location(operator)
+            )
         return self._call()
 
     def _call(self) -> Expression:
         expression = self._primary()
+
         while True:
             if self._match(TokenType.LEFT_PAREN):
                 expression = self._finish_call(expression, self._previous())
@@ -264,9 +318,12 @@ class Parser:
                     TokenType.IDENTIFIER,
                     "'.' sonrasında alan veya metot adı bekleniyordu.",
                 )
-                expression = MemberExpression(expression, member.value, self._location(member))
+                expression = MemberExpression(
+                    expression, member.value, self._location(member)
+                )
             else:
                 break
+
         return expression
 
     def _finish_call(self, callee: Expression, left_paren: Token) -> CallExpression:
@@ -276,6 +333,7 @@ class Parser:
                 arguments.append(self._expression())
                 if not self._match(TokenType.COMMA):
                     break
+
         self._consume(TokenType.RIGHT_PAREN, "Fonksiyon çağrısı sonunda ')' bekleniyordu.")
         return CallExpression(callee, tuple(arguments), self._location(left_paren))
 
@@ -283,20 +341,49 @@ class Parser:
         if self._match(TokenType.STRING, TokenType.NUMBER):
             token = self._previous()
             return Literal(token.value, self._location(token))
+
         if self._match(TokenType.TRUE):
-            token = self._previous()
-            return Literal(True, self._location(token))
+            return Literal(True, self._location(self._previous()))
+
         if self._match(TokenType.FALSE):
+            return Literal(False, self._location(self._previous()))
+
+        if self._match(TokenType.STRING_INTERP):
             token = self._previous()
-            return Literal(False, self._location(token))
+            return self._interpolated_string(token)
+
         if self._match(TokenType.IDENTIFIER, TokenType.TYPE):
             token = self._previous()
             return Identifier(token.value, self._location(token))
+
         if self._match(TokenType.LEFT_PAREN):
             expression = self._expression()
             self._consume(TokenType.RIGHT_PAREN, "İfade sonunda ')' bekleniyordu.")
             return expression
+
         self._error(self._peek(), "İfade bekleniyordu.")
+
+    def _interpolated_string(self, token: Token) -> InterpolatedString:
+        location = self._location(token)
+        parts: list[Expression] = []
+
+        for kind, content in token.value:
+            if kind == "text":
+                parts.append(Literal(content, location))
+                continue
+
+            # "user.email" -> Identifier / MemberExpression zinciri
+            names = content.split(".")
+            expression: Expression = Identifier(names[0], location)
+            for member in names[1:]:
+                expression = MemberExpression(expression, member, location)
+            parts.append(expression)
+
+        return InterpolatedString(tuple(parts), location)
+
+    # ------------------------------------------------------------------
+    # Yardımcılar
+    # ------------------------------------------------------------------
 
     def _match(self, *types: TokenType) -> bool:
         for token_type in types:
@@ -339,4 +426,5 @@ class Parser:
 
 
 def parse(source: str) -> Program:
+    """Kaynak metni tek çağrıda AST'ye dönüştürür."""
     return Parser.from_source(source).parse()

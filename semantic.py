@@ -1,4 +1,22 @@
-"""Koschei AST için semantic, tip ve capability güvenlik denetleyicisi."""
+"""Koschei AST için semantic ve capability güvenlik denetleyicisi.
+
+Hata kodları:
+    KS1101  Tanımsız isim
+    KS1102  Aynı scope içinde tekrar tanım
+    KS1201  Immutable değere atama
+    KS1301  Tip uyuşmazlığı
+    KS2401  Gerekli yetki bu scope içinde mevcut değil
+    KS2402  Kök yetki doğrudan kullanılamaz (önce allow ile daraltılmalı)
+    KS2403  Daraltılmış yetki yeniden genişletilemez
+    KS2404  Bu yetki türü ilgili işleme izin vermez
+
+Yetki modeli:
+    caps.disk           -> DiskRoot   (yalnızca allow / allow_read_only)
+    DiskRoot.allow(...) -> DiskCaps   (read/write/list/delete; allow YOK)
+    DiskRoot.allow_read_only(...) -> DiskReadCaps (yalnızca read/list)
+Kök tipler G/Ç yapamaz; daraltılmış tipler yeniden allow çağıramaz.
+Böylece daraltma tek yönlüdür ve derleme zamanında zorlanır.
+"""
 
 from __future__ import annotations
 
@@ -14,33 +32,70 @@ from ast_nodes import (
     FunctionDeclaration,
     Identifier,
     IfStatement,
+    InterpolatedString,
     LetStatement,
     Literal,
-    MatchStatement,
     MemberExpression,
+    OrBlockExpression,
+    OrElseExpression,
     OrReturnExpression,
     Program,
     ReturnStatement,
     SourceLocation,
+    Statement,
     UnaryExpression,
     WhileStatement,
 )
 
+
+# SystemCaps üzerindeki kök yetki alanları
 CAPABILITY_MEMBERS = {
-    "net": "NetCaps",
-    "disk": "DiskCaps",
-    "env": "EnvCaps",
-    "process": "ProcessCaps",
+    "net": "NetRoot",
+    "disk": "DiskRoot",
+    "env": "EnvRoot",
+    "process": "ProcessRoot",
 }
 
-CAPABILITY_METHODS = {
-    "NetCaps": {"allow", "get", "post", "put", "delete", "request"},
-    "DiskCaps": {"allow", "read", "write", "delete", "list"},
-    "EnvCaps": {"allow", "get"},
-    "ProcessCaps": {"allow", "run", "spawn"},
+# Kök tipler: yalnızca daraltma metotları. Sonuç tipi eşlemesi.
+ROOT_METHODS: dict[str, dict[str, str]] = {
+    "NetRoot": {"allow": "NetCaps"},
+    "DiskRoot": {"allow": "DiskCaps", "allow_read_only": "DiskReadCaps"},
+    "EnvRoot": {"allow": "EnvCaps"},
+    "ProcessRoot": {"allow": "ProcessCaps"},
 }
 
-BUILTIN_CALLS = {"print", "println", "Error", "Some", "Ok", "Err"}
+# Daraltılmış tipler: yalnızca G/Ç metotları. allow YOKTUR.
+NARROWED_METHODS: dict[str, set[str]] = {
+    "NetCaps": {"get", "post", "put", "delete", "request"},
+    "DiskCaps": {"read", "write", "delete", "list", "read_file", "write_file"},
+    "DiskReadCaps": {"read", "list", "read_file"},
+    "EnvCaps": {"get"},
+    "ProcessCaps": {"run", "spawn"},
+}
+
+NARROWING_METHODS = {"allow", "allow_read_only"}
+
+# Herhangi bir yerde çağrılması yetki gerektiren metot adları
+GUARDED_METHODS: set[str] = set()
+for _methods in NARROWED_METHODS.values():
+    GUARDED_METHODS.update(_methods)
+
+CAPABILITY_TYPES = set(ROOT_METHODS) | set(NARROWED_METHODS) | {"SystemCaps"}
+
+BUILTIN_CALLS = {
+    "print",
+    "println",
+    "Error",
+    "Some",
+    "None",
+    "Ok",
+    "Err",
+    "parse_json",
+}
+
+COMPARISON_OPERATORS = {"==", "!=", "<", "<=", ">", ">="}
+LOGICAL_OPERATORS = {"&&", "||"}
+ARITHMETIC_OPERATORS = {"+", "-", "*", "/"}
 NUMERIC_TYPES = {"Int", "Float"}
 
 
@@ -72,24 +127,12 @@ class SemanticError(Exception):
 class SemanticChecker:
     def __init__(self, program: Program) -> None:
         self.program = program
-        self.functions = {item.name: item for item in program.declarations}
+        self.functions = {declaration.name: declaration for declaration in program.declarations}
         self.scopes: list[dict[str, Symbol]] = []
         self.variable_count = 0
         self.capability_count = 0
-        self.current_function: FunctionDeclaration | None = None
 
     def check(self) -> SemanticReport:
-        if len(self.functions) != len(self.program.declarations):
-            seen: set[str] = set()
-            for function in self.program.declarations:
-                if function.name in seen:
-                    raise SemanticError(
-                        "KS1103",
-                        f"'{function.name}' fonksiyonu birden fazla tanımlandı.",
-                        function.location,
-                    )
-                seen.add(function.name)
-
         for declaration in self.program.declarations:
             self._check_function(declaration)
 
@@ -101,64 +144,54 @@ class SemanticChecker:
 
     def _check_function(self, function: FunctionDeclaration) -> None:
         self.scopes.append({})
-        previous = self.current_function
-        self.current_function = function
         try:
             for parameter in function.parameters:
+                type_name = str(parameter.type_ref)
                 self._declare(
                     Symbol(
-                        parameter.name,
-                        str(parameter.type_ref),
-                        False,
-                        parameter.location,
+                        name=parameter.name,
+                        type_name=type_name,
+                        is_mutable=False,
+                        location=parameter.location,
                     )
                 )
-            self._check_block(function.body, new_scope=False)
+            self._check_statements(function.body)
         finally:
-            self.current_function = previous
             self.scopes.pop()
 
-    def _check_block(self, block: Block, *, new_scope: bool = True) -> None:
-        if new_scope:
-            self.scopes.append({})
-        try:
-            for statement in block.statements:
-                self._check_statement(statement)
-        finally:
-            if new_scope:
-                self.scopes.pop()
+    # ------------------------------------------------------------------
+    # Statement denetimi
+    # ------------------------------------------------------------------
 
-    def _check_statement(self, statement: object) -> None:
+    def _check_block(self, block: Block) -> None:
+        """Yeni bir scope açar; blok içi 'let' tanımları dışarı sızmaz."""
+        self.scopes.append({})
+        try:
+            self._check_statements(block)
+        finally:
+            self.scopes.pop()
+
+    def _check_statements(self, block: Block) -> None:
+        for statement in block.statements:
+            self._check_statement(statement)
+
+    def _check_statement(self, statement: Statement) -> None:
         if isinstance(statement, LetStatement):
             value_type = self._check_expression(statement.value)
             self._declare(
                 Symbol(
-                    statement.name,
-                    value_type,
-                    statement.is_mutable,
-                    statement.location,
+                    name=statement.name,
+                    type_name=value_type,
+                    is_mutable=statement.is_mutable,
+                    location=statement.location,
                 )
             )
             self.variable_count += 1
             return
 
         if isinstance(statement, ReturnStatement):
-            actual = (
-                "Void"
-                if statement.value is None
-                else self._check_expression(statement.value)
-            )
-            expected = (
-                str(self.current_function.return_type)
-                if self.current_function and self.current_function.return_type
-                else "Void"
-            )
-            if not self._is_assignable(actual, expected):
-                raise SemanticError(
-                    "KS1304",
-                    f"Dönüş tipi uyuşmuyor: '{expected}' beklenirken '{actual}' döndürüldü.",
-                    statement.location,
-                )
+            if statement.value is not None:
+                self._check_expression(statement.value)
             return
 
         if isinstance(statement, ExpressionStatement):
@@ -166,103 +199,26 @@ class SemanticChecker:
             return
 
         if isinstance(statement, IfStatement):
-            self._require_bool(
-                self._check_expression(statement.condition),
-                statement.condition.location,
-                "if",
-            )
-            self._check_block(statement.then_branch)
-            if statement.else_branch is not None:
+            condition_type = self._check_expression(statement.condition)
+            self._require_bool(condition_type, "if koşulu", statement.location)
+            self._check_block(statement.then_block)
+            if isinstance(statement.else_branch, Block):
                 self._check_block(statement.else_branch)
+            elif isinstance(statement.else_branch, IfStatement):
+                self._check_statement(statement.else_branch)
             return
 
         if isinstance(statement, WhileStatement):
-            self._require_bool(
-                self._check_expression(statement.condition),
-                statement.condition.location,
-                "while",
-            )
+            condition_type = self._check_expression(statement.condition)
+            self._require_bool(condition_type, "while koşulu", statement.location)
             self._check_block(statement.body)
-            return
-
-        if isinstance(statement, MatchStatement):
-            self._check_match_statement(statement)
             return
 
         raise AssertionError(f"Desteklenmeyen statement: {type(statement).__name__}")
 
-    def _check_match_statement(self, statement: MatchStatement) -> None:
-        value_type = self._check_expression(statement.value)
-        generic = self._generic_parts(value_type) if value_type else None
-        if generic and generic[0] == "Option" and len(generic[1]) == 1:
-            payloads: dict[str, str | None] = {
-                "Some": generic[1][0],
-                "None": None,
-            }
-        elif generic and generic[0] == "Result" and len(generic[1]) == 2:
-            payloads = {
-                "Ok": generic[1][0],
-                "Err": generic[1][1],
-            }
-        else:
-            raise SemanticError(
-                "KS1501",
-                f"match yalnızca Option veya Result üzerinde kullanılabilir; '{value_type}' bulundu.",
-                statement.location,
-            )
-
-        seen: set[str] = set()
-        for arm in statement.arms:
-            kind = arm.pattern.kind
-            if kind not in payloads:
-                expected = ", ".join(payloads)
-                raise SemanticError(
-                    "KS1501",
-                    f"'{kind}' bu match için geçerli değil; {expected} bekleniyor.",
-                    arm.pattern.location,
-                )
-            if kind in seen:
-                raise SemanticError(
-                    "KS1502",
-                    f"'{kind}' match kolu birden fazla tanımlandı.",
-                    arm.pattern.location,
-                )
-            seen.add(kind)
-
-            payload_type = payloads[kind]
-            binding = arm.pattern.binding
-            if payload_type is None and binding is not None:
-                raise SemanticError(
-                    "KS1501",
-                    f"'{kind}' deseni değer bağlayamaz.",
-                    arm.pattern.location,
-                )
-            if payload_type is not None and binding is None:
-                raise SemanticError(
-                    "KS1501",
-                    f"'{kind}' deseni bir değer adı bağlamalıdır.",
-                    arm.pattern.location,
-                )
-
-            self.scopes.append({})
-            try:
-                if binding is not None:
-                    self._declare(
-                        Symbol(binding, payload_type, False, arm.pattern.location)
-                    )
-                    self.variable_count += 1
-                self._check_block(arm.body, new_scope=False)
-            finally:
-                self.scopes.pop()
-
-        missing = set(payloads) - seen
-        if missing:
-            missing_text = ", ".join(sorted(missing))
-            raise SemanticError(
-                "KS1503",
-                f"match eksik: {missing_text} kolu tanımlanmalıdır.",
-                statement.location,
-            )
+    # ------------------------------------------------------------------
+    # Expression denetimi
+    # ------------------------------------------------------------------
 
     def _check_expression(self, expression: Expression) -> str | None:
         if isinstance(expression, Literal):
@@ -276,9 +232,12 @@ class SemanticChecker:
                 return "Float"
             return None
 
+        if isinstance(expression, InterpolatedString):
+            for part in expression.parts:
+                self._check_expression(part)
+            return "String"
+
         if isinstance(expression, Identifier):
-            if expression.name == "None":
-                return "None"
             symbol = self._resolve(expression.name)
             if symbol is not None:
                 return symbol.type_name
@@ -289,95 +248,66 @@ class SemanticChecker:
                 return None
             self._raise_unknown_identifier(expression)
 
-        if isinstance(expression, UnaryExpression):
-            operand_type = self._check_expression(expression.operand)
-            if expression.operator == "-" and operand_type in NUMERIC_TYPES:
-                return operand_type
-            raise SemanticError(
-                "KS1305",
-                f"'{expression.operator}' işleci '{operand_type}' tipiyle kullanılamaz.",
-                expression.location,
-            )
-
-        if isinstance(expression, BinaryExpression):
-            left_type = self._check_expression(expression.left)
-            right_type = self._check_expression(expression.right)
-            return self._binary_type(
-                expression.operator,
-                left_type,
-                right_type,
-                expression.location,
-            )
-
         if isinstance(expression, MemberExpression):
             object_type = self._check_expression(expression.object)
+
             if object_type == "SystemCaps" and expression.member in CAPABILITY_MEMBERS:
-                capability_type = CAPABILITY_MEMBERS[expression.member]
                 self.capability_count += 1
-                return capability_type
+                return CAPABILITY_MEMBERS[expression.member]
+
+            # Yetki tiplerinin metotları yalnızca çağrı içinde anlamlıdır;
+            # 'let f = api.get' gibi erişimler yetki tipini SIZDIRMAZ.
+            if object_type in CAPABILITY_TYPES:
+                return None
+
             return object_type
 
         if isinstance(expression, CallExpression):
-            argument_types = [
-                self._check_expression(item) for item in expression.arguments
-            ]
-
-            if isinstance(expression.callee, Identifier):
-                name = expression.callee.name
-                if name in self.functions:
-                    return self._check_function_call(
-                        name, argument_types, expression.location
-                    )
-                if name in BUILTIN_CALLS:
-                    return self._check_builtin_call(
-                        name, argument_types, expression.location
-                    )
+            for argument in expression.arguments:
+                self._check_expression(argument)
 
             if isinstance(expression.callee, MemberExpression):
                 receiver_type = self._check_expression(expression.callee.object)
-                method_name = expression.callee.member
-                self._check_capability_call(
-                    expression.callee.object,
+                return self._check_method_call(
                     receiver_type,
-                    method_name,
+                    expression.callee.member,
                     expression.location,
                 )
-                return self._member_call_type(receiver_type, method_name)
 
             return self._check_expression(expression.callee)
 
+        if isinstance(expression, BinaryExpression):
+            return self._check_binary(expression)
+
+        if isinstance(expression, UnaryExpression):
+            operand_type = self._check_expression(expression.operand)
+            if expression.operator == "!":
+                self._require_bool(operand_type, "'!' işleci", expression.location)
+                return "Bool"
+            # '-' işleci
+            if operand_type is not None and operand_type not in NUMERIC_TYPES:
+                raise SemanticError(
+                    "KS1301",
+                    f"'-' işleci sayısal tip bekler, {operand_type} bulundu.",
+                    expression.location,
+                )
+            return operand_type
+
         if isinstance(expression, OrReturnExpression):
             value_type = self._check_expression(expression.value)
-            if value_type is None:
-                raise SemanticError(
-                    "KS1401",
-                    "'or return' yalnızca hata taşıyabilen bir değerle kullanılabilir.",
-                    expression.location,
-                )
-            success_type, error_type = self._fallible_parts(value_type)
-            if success_type is None:
-                raise SemanticError(
-                    "KS1401",
-                    f"'{value_type}' tipi 'or return' ile açılamaz.",
-                    expression.location,
-                )
-            propagated = (
+            if expression.error is not None:
                 self._check_expression(expression.error)
-                if expression.error is not None
-                else error_type
-            )
-            expected = (
-                str(self.current_function.return_type)
-                if self.current_function and self.current_function.return_type
-                else "Void"
-            )
-            if propagated and not self._is_error_compatible(propagated, expected):
-                raise SemanticError(
-                    "KS1402",
-                    f"'{propagated}' hatası '{expected}' dönüş tipinden aktarılamaz.",
-                    expression.location,
-                )
-            return success_type
+            return value_type
+
+        if isinstance(expression, OrElseExpression):
+            value_type = self._check_expression(expression.value)
+            fallback_type = self._check_expression(expression.fallback)
+            return value_type or fallback_type
+
+        if isinstance(expression, OrBlockExpression):
+            value_type = self._check_expression(expression.value)
+            self._check_block(expression.handler)
+            return value_type
 
         if isinstance(expression, AssignmentExpression):
             value_type = self._check_expression(expression.value)
@@ -391,182 +321,135 @@ class SemanticChecker:
                         f"'{symbol.name}' immutable bir değerdir; değiştirmek için 'let mut' kullanın.",
                         expression.location,
                     )
-                if symbol.type_name and not self._is_assignable(
-                    value_type, symbol.type_name
-                ):
-                    raise SemanticError(
-                        "KS1303",
-                        f"'{symbol.name}' için '{symbol.type_name}' beklenirken '{value_type}' atandı.",
-                        expression.location,
-                    )
                 return symbol.type_name or value_type
+
             self._check_expression(expression.target)
             return value_type
 
         raise AssertionError(f"Desteklenmeyen expression: {type(expression).__name__}")
 
-    def _binary_type(
-        self,
-        operator: str,
-        left: str | None,
-        right: str | None,
-        location: SourceLocation,
-    ) -> str:
-        if operator in {"+", "-", "*", "/"}:
-            if left in NUMERIC_TYPES and right in NUMERIC_TYPES:
-                if operator == "/" or "Float" in {left, right}:
-                    return "Float"
-                return "Int"
-            raise SemanticError(
-                "KS1305",
-                f"'{operator}' işleci sayısal değerler bekliyor; '{left}' ve '{right}' verildi.",
-                location,
-            )
+    def _check_binary(self, expression: BinaryExpression) -> str | None:
+        left_type = self._check_expression(expression.left)
+        right_type = self._check_expression(expression.right)
+        operator = expression.operator
 
-        if operator in {"<", "<=", ">", ">="}:
-            if left in NUMERIC_TYPES and right in NUMERIC_TYPES:
-                return "Bool"
-            raise SemanticError(
-                "KS1305",
-                f"'{operator}' karşılaştırması sayısal değerler bekliyor.",
-                location,
-            )
+        if operator in LOGICAL_OPERATORS:
+            self._require_bool(left_type, f"'{operator}' işlecinin sol tarafı", expression.location)
+            self._require_bool(right_type, f"'{operator}' işlecinin sağ tarafı", expression.location)
+            return "Bool"
 
-        if operator in {"==", "!="}:
-            if self._is_assignable(left, right or "Unknown") or self._is_assignable(
-                right, left or "Unknown"
+        if operator in COMPARISON_OPERATORS:
+            if (
+                left_type is not None
+                and right_type is not None
+                and left_type != right_type
             ):
-                return "Bool"
-            raise SemanticError(
-                "KS1305",
-                f"'{left}' ile '{right}' karşılaştırılamaz.",
-                location,
-            )
-
-        raise AssertionError(operator)
-
-    @staticmethod
-    def _require_bool(
-        actual: str | None, location: SourceLocation, owner: str
-    ) -> None:
-        if actual != "Bool":
-            raise SemanticError(
-                "KS1305",
-                f"'{owner}' koşulu Bool olmalıdır; '{actual}' bulundu.",
-                location,
-            )
-
-    def _check_function_call(
-        self,
-        name: str,
-        argument_types: list[str | None],
-        location: SourceLocation,
-    ) -> str:
-        function = self.functions[name]
-        if len(argument_types) != len(function.parameters):
-            raise SemanticError(
-                "KS1301",
-                f"'{name}' {len(function.parameters)} argüman bekliyor; {len(argument_types)} verildi.",
-                location,
-            )
-        for index, (actual, parameter) in enumerate(
-            zip(argument_types, function.parameters, strict=True), start=1
-        ):
-            expected = str(parameter.type_ref)
-            if not self._is_assignable(actual, expected):
                 raise SemanticError(
-                    "KS1302",
-                    f"'{name}' çağrısında {index}. argüman '{expected}' olmalı; '{actual}' verildi.",
-                    location,
+                    "KS1301",
+                    f"'{operator}' iki farklı tipi karşılaştıramaz: {left_type} ve {right_type}.",
+                    expression.location,
                 )
-        return str(function.return_type) if function.return_type else "Void"
+            return "Bool"
 
-    def _check_builtin_call(
-        self,
-        name: str,
-        argument_types: list[str | None],
-        location: SourceLocation,
-    ) -> str:
-        if name in {"print", "println"}:
-            self._require_arity(name, argument_types, 1, location)
-            return "Void"
-        if name == "Error":
-            self._require_arity(name, argument_types, 1, location)
-            if not self._is_assignable(argument_types[0], "String"):
-                raise SemanticError(
-                    "KS1302", "Error mesajı String olmalıdır.", location
-                )
-            return "Error"
-        if name == "Some":
-            self._require_arity(name, argument_types, 1, location)
-            return f"Option<{argument_types[0] or 'Unknown'}>"
-        if name == "Ok":
-            self._require_arity(name, argument_types, 1, location)
-            return f"Result<{argument_types[0] or 'Unknown'}, Unknown>"
-        if name == "Err":
-            self._require_arity(name, argument_types, 1, location)
-            return f"Result<Unknown, {argument_types[0] or 'Unknown'}>"
-        raise AssertionError(name)
+        if operator in ARITHMETIC_OPERATORS:
+            if left_type is not None and right_type is not None:
+                if left_type != right_type:
+                    raise SemanticError(
+                        "KS1301",
+                        f"'{operator}' iki farklı tipe uygulanamaz: {left_type} ve {right_type}.",
+                        expression.location,
+                    )
+                if left_type == "String":
+                    if operator != "+":
+                        raise SemanticError(
+                            "KS1301",
+                            f"String yalnızca '+' ile birleştirilebilir; '{operator}' geçersiz.",
+                            expression.location,
+                        )
+                    return "String"
+                if left_type not in NUMERIC_TYPES:
+                    raise SemanticError(
+                        "KS1301",
+                        f"'{operator}' işleci {left_type} tipine uygulanamaz.",
+                        expression.location,
+                    )
+                return left_type
+            return left_type or right_type
 
-    @staticmethod
-    def _require_arity(
-        name: str,
-        arguments: list[str | None],
-        expected: int,
-        location: SourceLocation,
-    ) -> None:
-        if len(arguments) != expected:
-            raise SemanticError(
-                "KS1301",
-                f"'{name}' {expected} argüman bekliyor; {len(arguments)} verildi.",
-                location,
-            )
-
-    @staticmethod
-    def _member_call_type(
-        receiver_type: str | None, method_name: str
-    ) -> str | None:
-        if method_name == "allow" and receiver_type in CAPABILITY_METHODS:
-            return receiver_type
-        if receiver_type == "NetCaps" and method_name in {
-            "get",
-            "post",
-            "put",
-            "delete",
-            "request",
-        }:
-            return "Result<String, Error>"
-        if receiver_type == "DiskCaps" and method_name in {"read", "list"}:
-            return "Result<String, Error>"
-        if receiver_type == "DiskCaps" and method_name in {"write", "delete"}:
-            return "Result<Void, Error>"
-        if receiver_type == "EnvCaps" and method_name == "get":
-            return "Option<String>"
-        if receiver_type == "ProcessCaps" and method_name in {"run", "spawn"}:
-            return "Result<Int, Error>"
-        if receiver_type == "String" and method_name == "text":
-            return "String"
         return None
 
-    def _check_capability_call(
+    # ------------------------------------------------------------------
+    # Yetki (capability) denetimi
+    # ------------------------------------------------------------------
+
+    def _check_method_call(
         self,
-        receiver: Expression,
         receiver_type: str | None,
         method_name: str,
         location: SourceLocation,
-    ) -> None:
-        for capability_type, methods in CAPABILITY_METHODS.items():
-            if method_name not in methods:
-                continue
-            if receiver_type == capability_type:
-                return
-            root_name = self._root_identifier(receiver)
-            if root_name in CAPABILITY_MEMBERS or method_name != "allow":
+    ) -> str | None:
+        # 1) Kök yetki: yalnızca daraltma metotları.
+        if receiver_type in ROOT_METHODS:
+            mapping = ROOT_METHODS[receiver_type]
+            if method_name in mapping:
+                self.capability_count += 1
+                return mapping[method_name]
+            raise SemanticError(
+                "KS2402",
+                f"{receiver_type} kök yetkisi doğrudan '{method_name}' yapamaz; "
+                f"önce {' veya '.join(sorted(mapping))} ile daraltın.",
+                location,
+            )
+
+        # 2) Daraltılmış yetki: G/Ç serbest, yeniden genişletme yasak.
+        if receiver_type in NARROWED_METHODS:
+            if method_name in NARROWING_METHODS:
                 raise SemanticError(
-                    "KS2401",
-                    f"'{method_name}' işlemi için {capability_type} yetkisi bu scope içinde mevcut değil.",
+                    "KS2403",
+                    f"{receiver_type} daraltılmış bir yetkidir; '{method_name}' ile "
+                    "yeniden genişletilemez. Yeni kapsam için kök yetkiden türetin.",
                     location,
                 )
+            if method_name in NARROWED_METHODS[receiver_type]:
+                return None
+            raise SemanticError(
+                "KS2404",
+                f"{receiver_type} yetkisi '{method_name}' işlemine izin vermez.",
+                location,
+            )
+
+        # 3) SystemCaps üzerinde doğrudan işlem yok.
+        if receiver_type == "SystemCaps":
+            raise SemanticError(
+                "KS2402",
+                "SystemCaps üzerinde doğrudan işlem yapılamaz; "
+                "caps.net / caps.disk gibi kök yetkilerden daraltın.",
+                location,
+            )
+
+        # 4) Yetki gerektiren metot, yetkisiz bir nesne üzerinde.
+        if method_name in GUARDED_METHODS:
+            raise SemanticError(
+                "KS2401",
+                f"'{method_name}' işlemi için gerekli yetki bu scope içinde mevcut değil.",
+                location,
+            )
+
+        return None
+
+    # ------------------------------------------------------------------
+    # Yardımcılar
+    # ------------------------------------------------------------------
+
+    def _require_bool(
+        self, type_name: str | None, subject: str, location: SourceLocation
+    ) -> None:
+        if type_name is not None and type_name != "Bool":
+            raise SemanticError(
+                "KS1301",
+                f"{subject} Bool olmalıdır, {type_name} bulundu.",
+                location,
+            )
 
     def _declare(self, symbol: Symbol) -> None:
         scope = self.scopes[-1]
@@ -577,7 +460,7 @@ class SemanticChecker:
                 symbol.location,
             )
         scope[symbol.name] = symbol
-        if symbol.type_name in CAPABILITY_METHODS or symbol.type_name == "SystemCaps":
+        if symbol.type_name in CAPABILITY_TYPES:
             self.capability_count += 1
 
     def _resolve(self, name: str) -> Symbol | None:
@@ -587,97 +470,7 @@ class SemanticChecker:
                 return symbol
         return None
 
-    @classmethod
-    def _is_assignable(cls, actual: str | None, expected: str) -> bool:
-        if actual is None or actual == "Unknown" or expected == "Unknown":
-            return True
-        if actual == expected:
-            return True
-        if actual == "Int" and expected == "Float":
-            return True
-
-        union = cls._split_union(expected)
-        if len(union) > 1:
-            return any(cls._is_assignable(actual, item) for item in union)
-
-        expected_generic = cls._generic_parts(expected)
-        actual_generic = cls._generic_parts(actual)
-        if expected_generic:
-            base, expected_args = expected_generic
-            if base == "Option" and actual == "None":
-                return True
-            if actual_generic and actual_generic[0] == base:
-                actual_args = actual_generic[1]
-                return len(actual_args) == len(expected_args) and all(
-                    cls._is_assignable(a, e)
-                    for a, e in zip(actual_args, expected_args, strict=True)
-                )
-        return False
-
-    @classmethod
-    def _is_error_compatible(cls, error_type: str, expected: str) -> bool:
-        if cls._is_assignable(error_type, expected):
-            return True
-        generic = cls._generic_parts(expected)
-        if generic and generic[0] == "Result" and len(generic[1]) == 2:
-            return cls._is_assignable(error_type, generic[1][1])
-        return False
-
-    @classmethod
-    def _fallible_parts(cls, type_name: str) -> tuple[str | None, str | None]:
-        generic = cls._generic_parts(type_name)
-        if generic and generic[0] == "Result" and len(generic[1]) == 2:
-            return generic[1][0], generic[1][1]
-        union = cls._split_union(type_name)
-        if len(union) > 1 and "Error" in union:
-            return next((item for item in union if item != "Error"), None), "Error"
-        return None, None
-
-    @staticmethod
-    def _split_union(type_name: str) -> list[str]:
-        parts: list[str] = []
-        start = 0
-        depth = 0
-        index = 0
-        while index < len(type_name):
-            char = type_name[index]
-            depth += char == "<"
-            depth -= char == ">"
-            if depth == 0 and type_name.startswith(" or ", index):
-                parts.append(type_name[start:index])
-                index += 4
-                start = index
-                continue
-            index += 1
-        parts.append(type_name[start:])
-        return parts
-
-    @staticmethod
-    def _generic_parts(type_name: str) -> tuple[str, list[str]] | None:
-        if "<" not in type_name or not type_name.endswith(">"):
-            return None
-        base, raw = type_name.split("<", 1)
-        raw = raw[:-1]
-        args: list[str] = []
-        start = 0
-        depth = 0
-        for index, char in enumerate(raw):
-            depth += char == "<"
-            depth -= char == ">"
-            if char == "," and depth == 0:
-                args.append(raw[start:index].strip())
-                start = index + 1
-        args.append(raw[start:].strip())
-        return base, args
-
-    @staticmethod
-    def _root_identifier(expression: Expression) -> str | None:
-        while isinstance(expression, MemberExpression):
-            expression = expression.object
-        return expression.name if isinstance(expression, Identifier) else None
-
-    @staticmethod
-    def _raise_unknown_identifier(identifier: Identifier) -> None:
+    def _raise_unknown_identifier(self, identifier: Identifier) -> None:
         if identifier.name in CAPABILITY_MEMBERS:
             required = CAPABILITY_MEMBERS[identifier.name]
             raise SemanticError(

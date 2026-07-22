@@ -39,6 +39,116 @@ class SemanticTests(unittest.TestCase):
         report = check(program)
         self.assertGreaterEqual(report.capability_values, 2)
 
+    # ------------------------------------------------------------------
+    # Yetki modeli saldırı senaryoları
+    # ------------------------------------------------------------------
+
+    def test_root_capability_cannot_do_io_directly(self) -> None:
+        # KS2402: caps.disk allow'suz doğrudan okuyamaz.
+        program = parse(
+            'fn main(caps: SystemCaps) { '
+            'let raw = caps.disk '
+            'let secret = raw.read("/etc/shadow") '
+            '}'
+        )
+        with self.assertRaisesRegex(SemanticError, "KS2402"):
+            check(program)
+
+    def test_narrowed_capability_cannot_be_rewidened(self) -> None:
+        # KS2403: daraltılmış jeton üzerinde allow yasak.
+        program = parse(
+            'fn main(caps: SystemCaps) { '
+            'let ro = caps.disk.allow_read_only("/tmp/safe") '
+            'let widened = ro.allow("/") '
+            '}'
+        )
+        with self.assertRaisesRegex(SemanticError, "KS2403"):
+            check(program)
+
+    def test_read_only_capability_cannot_write(self) -> None:
+        # KS2404: DiskReadCaps yazma iznine sahip değildir.
+        program = parse(
+            'fn main(caps: SystemCaps) { '
+            'let ro = caps.disk.allow_read_only("/tmp/safe") '
+            'ro.write("/tmp/safe/x", "data") '
+            '}'
+        )
+        with self.assertRaisesRegex(SemanticError, "KS2404"):
+            check(program)
+
+    def test_narrowed_capability_passed_to_function_keeps_permissions(self) -> None:
+        program = parse(
+            'fn load(disk: DiskReadCaps, path: String) -> String or Error { '
+            'let content = disk.read(path) or return Error("okunamadı") '
+            'return content '
+            '} '
+            'fn main(caps: SystemCaps) { '
+            'let ro = caps.disk.allow_read_only("/etc/app/") '
+            'let cfg = load(ro, "/etc/app/config.json") or return '
+            '}'
+        )
+        report = check(program)
+        self.assertGreaterEqual(report.capability_values, 3)
+
+    def test_system_caps_has_no_direct_operations(self) -> None:
+        program = parse('fn main(caps: SystemCaps) { caps.allow("https://x") }')
+        with self.assertRaisesRegex(SemanticError, "KS2402"):
+            check(program)
+
+    # ------------------------------------------------------------------
+    # Tip denetimi
+    # ------------------------------------------------------------------
+
+    def test_arithmetic_type_mismatch_is_rejected(self) -> None:
+        program = parse('fn main() { let x = "abc" + 5 }')
+        with self.assertRaisesRegex(SemanticError, "KS1301"):
+            check(program)
+
+    def test_if_condition_must_be_bool(self) -> None:
+        program = parse("fn main() { let x = 3 if x { return } }")
+        with self.assertRaisesRegex(SemanticError, "KS1301"):
+            check(program)
+
+    def test_while_with_comparison_condition_passes(self) -> None:
+        program = parse(
+            "fn main() { let mut n = 3 while n > 0 { n = n - 1 } }"
+        )
+        report = check(program)
+        self.assertEqual(report.variables, 1)
+
+    def test_block_scoped_let_does_not_leak(self) -> None:
+        # if bloğunda tanımlanan değişken blok dışında görünmez.
+        program = parse(
+            "fn main() { if true { let inner = 1 } let x = inner }"
+        )
+        with self.assertRaisesRegex(SemanticError, "KS1101"):
+            check(program)
+
+    def test_interpolation_checks_identifiers(self) -> None:
+        program = parse('fn main() { let msg = "selam {missing_name}" }')
+        with self.assertRaisesRegex(SemanticError, "KS1101"):
+            check(program)
+
+    def test_interpolation_with_known_member_path_passes(self) -> None:
+        program = parse(
+            'fn greet(user: String) { println("selam {user}") } '
+        )
+        report = check(program)
+        self.assertEqual(report.functions, 1)
+
+    def test_or_else_and_or_block_pass(self) -> None:
+        program = parse(
+            'fn read_port(raw: String) -> Int or Error { '
+            'return raw.to_int() or return Error("geçersiz") '
+            '} '
+            'fn main() { '
+            'let port = read_port("8080") or 8080 '
+            'let other = read_port("x") or { println("varsayılan") } '
+            '}'
+        )
+        report = check(program)
+        self.assertEqual(report.functions, 2)
+
 
 if __name__ == "__main__":
     unittest.main()

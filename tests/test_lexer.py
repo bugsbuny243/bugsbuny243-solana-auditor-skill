@@ -38,6 +38,55 @@ class LexerTests(unittest.TestCase):
         with self.assertRaisesRegex(LexerError, r"satır 1, sütun 9"):
             tokenize('let x = "unfinished')
 
+    def test_control_flow_keywords_and_bool_literals(self) -> None:
+        tokens = tokenize("if true { } else { } while false { }")
+        token_types = [token.type for token in tokens]
+
+        self.assertIn(TokenType.IF, token_types)
+        self.assertIn(TokenType.ELSE, token_types)
+        self.assertIn(TokenType.WHILE, token_types)
+        self.assertIn(TokenType.TRUE, token_types)
+        self.assertIn(TokenType.FALSE, token_types)
+
+    def test_logical_and_bang_operators(self) -> None:
+        tokens = tokenize("a && b || !c")
+        token_types = [token.type for token in tokens]
+
+        self.assertIn(TokenType.AMP_AMP, token_types)
+        self.assertIn(TokenType.PIPE_PIPE, token_types)
+        self.assertIn(TokenType.BANG, token_types)
+
+    def test_plain_string_stays_plain(self) -> None:
+        tokens = tokenize('let s = "duz metin"')
+        string_token = next(t for t in tokens if t.type is TokenType.STRING)
+        self.assertEqual(string_token.value, "duz metin")
+
+    def test_interpolated_string_produces_segments(self) -> None:
+        tokens = tokenize('let s = "selam {user.email} hoş geldin"')
+        token = next(t for t in tokens if t.type is TokenType.STRING_INTERP)
+
+        self.assertEqual(
+            token.value,
+            (
+                ("text", "selam "),
+                ("expr", "user.email"),
+                ("text", " hoş geldin"),
+            ),
+        )
+
+    def test_escaped_braces_do_not_interpolate(self) -> None:
+        tokens = tokenize(r'let s = "json: \{a\}"')
+        string_token = next(t for t in tokens if t.type is TokenType.STRING)
+        self.assertEqual(string_token.value, "json: {a}")
+
+    def test_invalid_interpolation_expression_is_rejected(self) -> None:
+        with self.assertRaisesRegex(LexerError, "yalnızca değişken"):
+            tokenize('let s = "sonuç: {1 + 2}"')
+
+    def test_empty_interpolation_is_rejected(self) -> None:
+        with self.assertRaisesRegex(LexerError, "Boş interpolasyon"):
+            tokenize('let s = "boş: {}"')
+
 
 if __name__ == "__main__":
     unittest.main()

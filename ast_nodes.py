@@ -1,4 +1,4 @@
-"""Koschei parser tarafından üretilen temel AST düğümleri."""
+"""Koschei parser tarafından üretilen AST düğümleri."""
 
 from __future__ import annotations
 
@@ -14,18 +14,11 @@ class SourceLocation:
 
 @dataclass(frozen=True, slots=True)
 class TypeRef:
-    name: str
+    names: tuple[str, ...]
     location: SourceLocation
-    arguments: tuple["TypeRef", ...] = field(default_factory=tuple)
-    alternatives: tuple["TypeRef", ...] = field(default_factory=tuple)
 
     def __str__(self) -> str:
-        if self.alternatives:
-            return " or ".join(str(item) for item in self.alternatives)
-        if self.arguments:
-            rendered = ", ".join(str(item) for item in self.arguments)
-            return f"{self.name}<{rendered}>"
-        return self.name
+        return " or ".join(self.names)
 
 
 @dataclass(frozen=True, slots=True)
@@ -48,17 +41,10 @@ class Literal:
 
 
 @dataclass(frozen=True, slots=True)
-class UnaryExpression:
-    operator: str
-    operand: "Expression"
-    location: SourceLocation
+class InterpolatedString:
+    """"Selam {name}" — parça listesi: Literal veya değişken/alan erişimi."""
 
-
-@dataclass(frozen=True, slots=True)
-class BinaryExpression:
-    left: "Expression"
-    operator: str
-    right: "Expression"
+    parts: tuple["Expression", ...]
     location: SourceLocation
 
 
@@ -84,21 +70,59 @@ class AssignmentExpression:
 
 
 @dataclass(frozen=True, slots=True)
+class BinaryExpression:
+    left: "Expression"
+    operator: str
+    right: "Expression"
+    location: SourceLocation
+
+
+@dataclass(frozen=True, slots=True)
+class UnaryExpression:
+    operator: str
+    operand: "Expression"
+    location: SourceLocation
+
+
+@dataclass(frozen=True, slots=True)
 class OrReturnExpression:
+    """deger = ifade or return [hata]"""
+
     value: "Expression"
     error: "Expression | None"
+    location: SourceLocation
+
+
+@dataclass(frozen=True, slots=True)
+class OrElseExpression:
+    """deger = ifade or varsayilan"""
+
+    value: "Expression"
+    fallback: "Expression"
+    location: SourceLocation
+
+
+@dataclass(frozen=True, slots=True)
+class OrBlockExpression:
+    """deger = ifade or { ... }"""
+
+    value: "Expression"
+    handler: "Block"
     location: SourceLocation
 
 
 Expression: TypeAlias = (
     Identifier
     | Literal
-    | UnaryExpression
-    | BinaryExpression
+    | InterpolatedString
     | MemberExpression
     | CallExpression
     | AssignmentExpression
+    | BinaryExpression
+    | UnaryExpression
     | OrReturnExpression
+    | OrElseExpression
+    | OrBlockExpression
 )
 
 
@@ -123,43 +147,17 @@ class ExpressionStatement:
 
 
 @dataclass(frozen=True, slots=True)
-class Block:
-    statements: tuple["Statement", ...] = field(default_factory=tuple)
-
-
-@dataclass(frozen=True, slots=True)
 class IfStatement:
     condition: Expression
-    then_branch: Block
-    else_branch: Block | None
+    then_block: "Block"
+    else_branch: "Block | IfStatement | None"
     location: SourceLocation
 
 
 @dataclass(frozen=True, slots=True)
 class WhileStatement:
     condition: Expression
-    body: Block
-    location: SourceLocation
-
-
-@dataclass(frozen=True, slots=True)
-class MatchPattern:
-    kind: str
-    binding: str | None
-    location: SourceLocation
-
-
-@dataclass(frozen=True, slots=True)
-class MatchArm:
-    pattern: MatchPattern
-    body: Block
-    location: SourceLocation
-
-
-@dataclass(frozen=True, slots=True)
-class MatchStatement:
-    value: Expression
-    arms: tuple[MatchArm, ...]
+    body: "Block"
     location: SourceLocation
 
 
@@ -169,8 +167,12 @@ Statement: TypeAlias = (
     | ExpressionStatement
     | IfStatement
     | WhileStatement
-    | MatchStatement
 )
+
+
+@dataclass(frozen=True, slots=True)
+class Block:
+    statements: tuple[Statement, ...] = field(default_factory=tuple)
 
 
 @dataclass(frozen=True, slots=True)
