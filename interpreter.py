@@ -1,0 +1,672 @@
+"""Koschei AST için tree-walking runtime yorumlayıcısı."""
+
+from __future__ import annotations
+
+import os
+import sys
+import urllib.error
+import urllib.request
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
+from urllib.parse import urlsplit
+
+from ast_nodes import (
+    AssignmentExpression,
+    BinaryExpression,
+    Block,
+    CallExpression,
+    Expression,
+    ExpressionStatement,
+    FunctionDeclaration,
+    Identifier,
+    IfStatement,
+    InterpolatedString,
+    LetStatement,
+    Literal,
+    MemberExpression,
+    OrBlockExpression,
+    OrElseExpression,
+    OrReturnExpression,
+    Program,
+    ReturnStatement,
+    SourceLocation,
+    Statement,
+    UnaryExpression,
+    WhileStatement,
+)
+from semantic import check as semantic_check
+
+
+@dataclass(frozen=True, slots=True)
+class KsError:
+    message: str
+
+    def __str__(self) -> str:
+        return self.message
+
+
+class _KsUnit:
+    __slots__ = ()
+
+    def __repr__(self) -> str:
+        return "KsUnit"
+
+    def __str__(self) -> str:
+        return "unit"
+
+
+KsUnit = _KsUnit()
+
+
+class KoscheiRuntimeError(Exception):
+    def __init__(self, code: str, message: str, location: SourceLocation) -> None:
+        self.code = code
+        self.message = message
+        self.location = location
+        super().__init__(
+            f"{code} [satır {location.line}, sütun {location.column}]: {message}"
+        )
+
+
+@dataclass(slots=True)
+class _Cell:
+    value: Any
+    is_mutable: bool
+
+
+class _Environment:
+    def __init__(self) -> None:
+        self.scopes: list[dict[str, _Cell]] = [{}]
+
+    def push(self) -> None:
+        self.scopes.append({})
+
+    def pop(self) -> None:
+        self.scopes.pop()
+
+    def define(self, name: str, value: Any, is_mutable: bool) -> None:
+        self.scopes[-1][name] = _Cell(value, is_mutable)
+
+    def resolve(self, name: str, location: SourceLocation) -> _Cell:
+        for scope in reversed(self.scopes):
+            cell = scope.get(name)
+            if cell is not None:
+                return cell
+        raise KoscheiRuntimeError(
+            "KS3101", f"Tanımsız isim: '{name}'.", location
+        )
+
+    def assign(self, name: str, value: Any, location: SourceLocation) -> Any:
+        cell = self.resolve(name, location)
+        if not cell.is_mutable:
+            raise KoscheiRuntimeError(
+                "KS3201",
+                f"'{name}' immutable bir değerdir; runtime ataması reddedildi.",
+                location,
+            )
+        cell.value = value
+        return value
+
+
+class _ReturnSignal(Exception):
+    def __init__(self, value: Any) -> None:
+        self.value = value
+
+
+@dataclass(frozen=True, slots=True)
+class _BoundMember:
+    receiver: Any
+    name: str
+    location: SourceLocation
+
+
+@dataclass(frozen=True, slots=True)
+class Response:
+    body: str
+    status_code: int
+
+    def text(self) -> str:
+        return self.body
+
+    def status(self) -> int:
+        return self.status_code
+
+
+class SystemCaps:
+    __slots__ = ("net", "disk", "env", "process")
+
+    def __init__(self) -> None:
+        self.net = NetRoot()
+        self.disk = DiskRoot()
+        self.env = EnvRoot()
+        self.process = ProcessRoot()
+
+
+class NetRoot:
+    __slots__ = ()
+
+    def allow(self, origin: str) -> "NetCaps":
+        return NetCaps(origin)
+
+
+class DiskRoot:
+    __slots__ = ()
+
+    def allow(self, prefix: str) -> "DiskCaps":
+        return DiskCaps(prefix)
+
+    def allow_read_only(self, prefix: str) -> "DiskReadCaps":
+        return DiskReadCaps(prefix)
+
+
+class EnvRoot:
+    __slots__ = ()
+
+    def allow(self, name: str) -> "EnvCaps":
+        return EnvCaps(name)
+
+
+class ProcessRoot:
+    __slots__ = ()
+
+    def allow(self, command: str) -> "ProcessCaps":
+        return ProcessCaps(command)
+
+
+class _NarrowedCapability:
+    __slots__ = ()
+
+
+class _DiskCapability(_NarrowedCapability):
+    __slots__ = ("prefix",)
+
+    def __init__(self, prefix: str) -> None:
+        self.prefix = os.path.realpath(os.fspath(prefix))
+
+    def _checked_path(self, path: str) -> str | KsError:
+        target = os.path.realpath(os.fspath(path))
+        try:
+            inside = os.path.commonpath((self.prefix, target)) == self.prefix
+        except ValueError:
+            inside = False
+        if not inside:
+            return KsError(
+                f"KS3402: Disk kapsamı dışında erişim reddedildi: {path}"
+            )
+        return target
+
+    def read(self, path: str) -> str | KsError:
+        return self.read_file(path)
+
+    def read_file(self, path: str) -> str | KsError:
+        checked = self._checked_path(path)
+        if isinstance(checked, KsError):
+            return checked
+        try:
+            return Path(checked).read_text(encoding="utf-8")
+        except OSError as error:
+            return KsError(f"Dosya okunamadı: {error}")
+
+    def list(self, path: str) -> list[str] | KsError:
+        checked = self._checked_path(path)
+        if isinstance(checked, KsError):
+            return checked
+        try:
+            return sorted(os.listdir(checked))
+        except OSError as error:
+            return KsError(f"Dizin listelenemedi: {error}")
+
+
+class DiskReadCaps(_DiskCapability):
+    __slots__ = ()
+
+    @staticmethod
+    def _denied(operation: str) -> KsError:
+        return KsError(
+            f"KS3404: DiskReadCaps '{operation}' işlemine izin vermez."
+        )
+
+    def write(self, path: str, value: str) -> KsError:
+        return self._denied("write")
+
+    def write_file(self, path: str, value: str) -> KsError:
+        return self._denied("write_file")
+
+    def delete(self, path: str) -> KsError:
+        return self._denied("delete")
+
+
+class DiskCaps(_DiskCapability):
+    __slots__ = ()
+
+    def write(self, path: str, value: str) -> _KsUnit | KsError:
+        return self.write_file(path, value)
+
+    def write_file(self, path: str, value: str) -> _KsUnit | KsError:
+        checked = self._checked_path(path)
+        if isinstance(checked, KsError):
+            return checked
+        try:
+            Path(checked).write_text(str(value), encoding="utf-8")
+        except OSError as error:
+            return KsError(f"Dosya yazılamadı: {error}")
+        return KsUnit
+
+    def delete(self, path: str) -> _KsUnit | KsError:
+        checked = self._checked_path(path)
+        if isinstance(checked, KsError):
+            return checked
+        try:
+            if os.path.isdir(checked):
+                os.rmdir(checked)
+            else:
+                os.remove(checked)
+        except OSError as error:
+            return KsError(f"Dosya silinemedi: {error}")
+        return KsUnit
+
+
+class NetCaps(_NarrowedCapability):
+    __slots__ = ("origin", "origin_key")
+
+    def __init__(self, origin: str) -> None:
+        self.origin = origin
+        self.origin_key = _origin_key(origin)
+
+    def _allows(self, url: str) -> bool:
+        return self.origin_key is not None and _origin_key(url) == self.origin_key
+
+    def get(self, url: str) -> Response | KsError:
+        if not self._allows(url):
+            return KsError(
+                f"KS3402: Ağ origin kapsamı dışında erişim reddedildi: {url}"
+            )
+        try:
+            request = urllib.request.Request(url, method="GET")
+            with urllib.request.urlopen(request, timeout=10) as response:
+                charset = response.headers.get_content_charset() or "utf-8"
+                body = response.read().decode(charset, errors="replace")
+                return Response(body, int(response.status))
+        except (OSError, urllib.error.URLError) as error:
+            return KsError(f"API isteği başarısız: {error}")
+
+    @staticmethod
+    def post(*arguments: Any) -> KsError:
+        return KsError("post henüz desteklenmiyor")
+
+    @staticmethod
+    def put(*arguments: Any) -> KsError:
+        return KsError("put henüz desteklenmiyor")
+
+    @staticmethod
+    def delete(*arguments: Any) -> KsError:
+        return KsError("delete henüz desteklenmiyor")
+
+    @staticmethod
+    def request(*arguments: Any) -> KsError:
+        return KsError("request henüz desteklenmiyor")
+
+
+class EnvCaps(_NarrowedCapability):
+    __slots__ = ("name",)
+
+    def __init__(self, name: str) -> None:
+        self.name = name
+
+    def get(self) -> str | KsError:
+        value = os.environ.get(self.name)
+        if value is None:
+            return KsError(f"Ortam değişkeni bulunamadı: {self.name}")
+        return value
+
+
+class ProcessCaps(_NarrowedCapability):
+    __slots__ = ("command",)
+
+    def __init__(self, command: str) -> None:
+        self.command = command
+
+    @staticmethod
+    def run(*arguments: Any) -> KsError:
+        return KsError("process yetkisi v0.1'de kapalı")
+
+    @staticmethod
+    def spawn(*arguments: Any) -> KsError:
+        return KsError("process yetkisi v0.1'de kapalı")
+
+
+def _origin_key(url: str) -> tuple[str, str, int | None] | None:
+    try:
+        parsed = urlsplit(url)
+        if not parsed.scheme or not parsed.hostname:
+            return None
+        scheme = parsed.scheme.lower()
+        host = parsed.hostname.lower()
+        port = parsed.port
+        if port is None:
+            port = 443 if scheme == "https" else 80 if scheme == "http" else None
+        return scheme, host, port
+    except ValueError:
+        return None
+
+
+class Interpreter:
+    def __init__(self, program: Program, argv: list[str] | None = None) -> None:
+        self.program = program
+        self.argv = list(argv or [])
+        self.functions = {
+            declaration.name: declaration for declaration in program.declarations
+        }
+        self.environment = _Environment()
+
+    def execute_main(self) -> Any:
+        main = self.functions.get("main")
+        if main is None:
+            raise KoscheiRuntimeError(
+                "KS3101", "'main' fonksiyonu bulunamadı.", SourceLocation(1, 1)
+            )
+        if len(main.parameters) == 0:
+            arguments: list[Any] = []
+        elif len(main.parameters) == 1:
+            arguments = [SystemCaps()]
+        else:
+            raise KoscheiRuntimeError(
+                "KS3101",
+                "'main' fonksiyonu sıfır veya bir parametre almalıdır.",
+                main.location,
+            )
+        return self._call_function(main, arguments)
+
+    def _call_function(
+        self, function: FunctionDeclaration, arguments: list[Any]
+    ) -> Any:
+        if len(arguments) != len(function.parameters):
+            raise KoscheiRuntimeError(
+                "KS3101",
+                f"'{function.name}' için {len(function.parameters)} argüman bekleniyor, "
+                f"{len(arguments)} verildi.",
+                function.location,
+            )
+        previous = self.environment
+        self.environment = _Environment()
+        try:
+            for parameter, value in zip(function.parameters, arguments):
+                self.environment.define(parameter.name, value, False)
+            try:
+                return self._execute_block(function.body, create_scope=False)
+            except _ReturnSignal as signal:
+                return signal.value
+        finally:
+            self.environment = previous
+
+    def _execute_block(self, block: Block, *, create_scope: bool = True) -> Any:
+        if create_scope:
+            self.environment.push()
+        try:
+            result: Any = KsUnit
+            for statement in block.statements:
+                result = self._execute_statement(statement)
+                if isinstance(result, KsError):
+                    return result
+            return result
+        finally:
+            if create_scope:
+                self.environment.pop()
+
+    def _execute_statement(self, statement: Statement) -> Any:
+        if isinstance(statement, LetStatement):
+            value = self._evaluate(statement.value)
+            self.environment.define(statement.name, value, statement.is_mutable)
+            return KsUnit
+
+        if isinstance(statement, ReturnStatement):
+            value = KsUnit if statement.value is None else self._evaluate(statement.value)
+            raise _ReturnSignal(value)
+
+        if isinstance(statement, ExpressionStatement):
+            return self._evaluate(statement.expression)
+
+        if isinstance(statement, IfStatement):
+            condition = self._evaluate(statement.condition)
+            if isinstance(condition, KsError):
+                return condition
+            if bool(condition):
+                return self._execute_block(statement.then_block)
+            if isinstance(statement.else_branch, Block):
+                return self._execute_block(statement.else_branch)
+            if isinstance(statement.else_branch, IfStatement):
+                return self._execute_statement(statement.else_branch)
+            return KsUnit
+
+        if isinstance(statement, WhileStatement):
+            result: Any = KsUnit
+            while True:
+                condition = self._evaluate(statement.condition)
+                if isinstance(condition, KsError):
+                    return condition
+                if not bool(condition):
+                    return result
+                result = self._execute_block(statement.body)
+                if isinstance(result, KsError):
+                    return result
+
+        raise AssertionError(f"Desteklenmeyen statement: {type(statement).__name__}")
+
+    def _evaluate(self, expression: Expression) -> Any:
+        if isinstance(expression, Literal):
+            return expression.value
+
+        if isinstance(expression, Identifier):
+            if expression.name in self.functions:
+                return self.functions[expression.name]
+            if expression.name in {"print", "println", "Error"}:
+                return expression.name
+            return self.environment.resolve(expression.name, expression.location).value
+
+        if isinstance(expression, InterpolatedString):
+            return "".join(str(self._evaluate(part)) for part in expression.parts)
+
+        if isinstance(expression, MemberExpression):
+            receiver = self._evaluate(expression.object)
+            return self._member(receiver, expression.member, expression.location)
+
+        if isinstance(expression, CallExpression):
+            callee = self._evaluate(expression.callee)
+            arguments = [self._evaluate(item) for item in expression.arguments]
+            return self._invoke(callee, arguments, expression.location)
+
+        if isinstance(expression, AssignmentExpression):
+            value = self._evaluate(expression.value)
+            if isinstance(expression.target, Identifier):
+                return self.environment.assign(
+                    expression.target.name, value, expression.location
+                )
+            raise KoscheiRuntimeError(
+                "KS3201", "Yalnızca değişkenlere atama yapılabilir.", expression.location
+            )
+
+        if isinstance(expression, BinaryExpression):
+            return self._binary(expression)
+
+        if isinstance(expression, UnaryExpression):
+            operand = self._evaluate(expression.operand)
+            if isinstance(operand, KsError):
+                return operand
+            if expression.operator == "!":
+                return not bool(operand)
+            if expression.operator == "-":
+                return -operand
+            raise AssertionError(expression.operator)
+
+        if isinstance(expression, OrReturnExpression):
+            value = self._evaluate(expression.value)
+            if isinstance(value, KsError):
+                replacement = (
+                    value
+                    if expression.error is None
+                    else self._evaluate(expression.error)
+                )
+                raise _ReturnSignal(replacement)
+            return value
+
+        if isinstance(expression, OrElseExpression):
+            value = self._evaluate(expression.value)
+            return self._evaluate(expression.fallback) if isinstance(value, KsError) else value
+
+        if isinstance(expression, OrBlockExpression):
+            value = self._evaluate(expression.value)
+            return self._execute_block(expression.handler) if isinstance(value, KsError) else value
+
+        raise AssertionError(f"Desteklenmeyen expression: {type(expression).__name__}")
+
+    def _binary(self, expression: BinaryExpression) -> Any:
+        left = self._evaluate(expression.left)
+        if isinstance(left, KsError):
+            return left
+        if expression.operator == "&&":
+            if not bool(left):
+                return False
+            right = self._evaluate(expression.right)
+            return right if isinstance(right, KsError) else bool(right)
+        if expression.operator == "||":
+            if bool(left):
+                return True
+            right = self._evaluate(expression.right)
+            return right if isinstance(right, KsError) else bool(right)
+
+        right = self._evaluate(expression.right)
+        if isinstance(right, KsError):
+            return right
+        operator = expression.operator
+        if operator == "+":
+            return left + right
+        if operator == "-":
+            return left - right
+        if operator == "*":
+            return left * right
+        if operator == "/":
+            if right == 0:
+                return KsError("Sıfıra bölme")
+            return left / right
+        if operator == "==":
+            return left == right
+        if operator == "!=":
+            return left != right
+        if operator == "<":
+            return left < right
+        if operator == "<=":
+            return left <= right
+        if operator == ">":
+            return left > right
+        if operator == ">=":
+            return left >= right
+        raise AssertionError(operator)
+
+    def _member(self, receiver: Any, name: str, location: SourceLocation) -> Any:
+        if isinstance(receiver, SystemCaps):
+            if name in {"net", "disk", "env", "process"}:
+                return getattr(receiver, name)
+
+        if isinstance(receiver, _NarrowedCapability) and name in {
+            "allow", "allow_read_only"
+        }:
+            raise KoscheiRuntimeError(
+                "KS3403",
+                f"Daraltılmış yetki '{name}' ile yeniden genişletilemez.",
+                location,
+            )
+
+        allowed_members: dict[type[Any], set[str]] = {
+            NetRoot: {"allow"},
+            DiskRoot: {"allow", "allow_read_only"},
+            EnvRoot: {"allow"},
+            ProcessRoot: {"allow"},
+            NetCaps: {"get", "post", "put", "delete", "request"},
+            DiskCaps: {"read", "read_file", "write", "write_file", "list", "delete"},
+            DiskReadCaps: {"read", "read_file", "write", "write_file", "list", "delete"},
+            EnvCaps: {"get"},
+            ProcessCaps: {"run", "spawn"},
+            Response: {"text", "status"},
+            str: {"length", "to_int", "to_float", "contains"},
+        }
+        for receiver_type, members in allowed_members.items():
+            if isinstance(receiver, receiver_type) and name in members:
+                return _BoundMember(receiver, name, location)
+
+        raise KoscheiRuntimeError(
+            "KS3101", f"Tanımsız alan veya metot: '{name}'.", location
+        )
+
+    def _invoke(
+        self, callee: Any, arguments: list[Any], location: SourceLocation
+    ) -> Any:
+        if isinstance(callee, FunctionDeclaration):
+            return self._call_function(callee, arguments)
+        if callee == "println":
+            self._require_arity("println", arguments, 1, location)
+            print(arguments[0])
+            return KsUnit
+        if callee == "print":
+            self._require_arity("print", arguments, 1, location)
+            print(arguments[0], end="")
+            return KsUnit
+        if callee == "Error":
+            self._require_arity("Error", arguments, 1, location)
+            return KsError(str(arguments[0]))
+        if isinstance(callee, _BoundMember):
+            return self._invoke_member(callee, arguments)
+        raise KoscheiRuntimeError(
+            "KS3101", "Çağrılabilir bir değer bekleniyordu.", location
+        )
+
+    def _invoke_member(self, member: _BoundMember, arguments: list[Any]) -> Any:
+        receiver = member.receiver
+        name = member.name
+        if isinstance(receiver, str):
+            if name == "length":
+                self._require_arity(name, arguments, 0, member.location)
+                return len(receiver)
+            if name == "to_int":
+                self._require_arity(name, arguments, 0, member.location)
+                try:
+                    return int(receiver.strip())
+                except ValueError:
+                    return KsError(f"Int dönüşümü başarısız: {receiver}")
+            if name == "to_float":
+                self._require_arity(name, arguments, 0, member.location)
+                try:
+                    return float(receiver.strip())
+                except ValueError:
+                    return KsError(f"Float dönüşümü başarısız: {receiver}")
+            if name == "contains":
+                self._require_arity(name, arguments, 1, member.location)
+                return str(arguments[0]) in receiver
+
+        method = getattr(receiver, name)
+        try:
+            return method(*arguments)
+        except TypeError as error:
+            raise KoscheiRuntimeError(
+                "KS3101", f"'{name}' çağrısı geçersiz: {error}", member.location
+            ) from error
+
+    @staticmethod
+    def _require_arity(
+        name: str, arguments: list[Any], expected: int, location: SourceLocation
+    ) -> None:
+        if len(arguments) != expected:
+            raise KoscheiRuntimeError(
+                "KS3101",
+                f"'{name}' için {expected} argüman bekleniyor, {len(arguments)} verildi.",
+                location,
+            )
+
+
+def run(program: Program, argv: list[str]) -> int:
+    semantic_check(program)
+    result = Interpreter(program, argv).execute_main()
+    if isinstance(result, KsError):
+        print(f"KOSCHEI RUNTIME ERROR: {result.message}", file=sys.stderr)
+        return 1
+    return 0
