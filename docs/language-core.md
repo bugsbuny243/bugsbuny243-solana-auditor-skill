@@ -116,7 +116,13 @@ Runtime (çalışma anı) hata kodları:
 python koschei.py tokens examples/capability.ks
 python koschei.py ast examples/capability.ks
 python koschei.py check examples/capability.ks
+python koschei.py run examples/capability.ks
+python koschei.py explain KS2403      # hata kodunu açıklar, düzeltme örneği verir
 ```
+
+`explain`, ham kodu (`KS2403`) veya kodu içeren tam hata metnini kabul eder.
+Bir derleme/çalışma hatası oluştuğunda CLI zaten ilgili `explain` komutunu önerir.
+Tanı katalogu sabittir: yalnızca açıklama üretir, hiçbir denetimi gevşetmez.
 
 `check` komutu lexer, parser ve semantic güvenlik kontrollerini birlikte çalıştırır.
 
