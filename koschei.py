@@ -9,6 +9,7 @@ import sys
 from dataclasses import asdict
 from pathlib import Path
 
+from interpreter import KoscheiRuntimeError, run as interpret
 from lexer import LexerError, tokenize
 from parser import ParserError, parse
 from semantic import SemanticError, check as semantic_check
@@ -44,6 +45,11 @@ def command_check(path: str) -> int:
     return 0
 
 
+def command_run(path: str) -> int:
+    program = parse(read_source(path))
+    return interpret(program, [])
+
+
 def build_parser() -> argparse.ArgumentParser:
     cli = argparse.ArgumentParser(
         prog="koschei",
@@ -55,6 +61,7 @@ def build_parser() -> argparse.ArgumentParser:
         ("tokens", "Lexer tokenlarını yazdırır"),
         ("ast", "Parser AST çıktısını JSON olarak yazdırır"),
         ("check", "Sözdizimi, değişmezlik ve capability kurallarını doğrular"),
+        ("run", "Koschei programını yorumlayıcı ile çalıştırır"),
     ):
         command = subcommands.add_parser(name, help=help_text)
         command.add_argument("source", help=".ks kaynak dosyası")
@@ -72,6 +79,11 @@ def main(argv: list[str] | None = None) -> int:
             return command_ast(args.source)
         if args.command == "check":
             return command_check(args.source)
+        if args.command == "run":
+            return command_run(args.source)
+    except KoscheiRuntimeError as error:
+        print(f"KOSCHEI RUNTIME ERROR: {error}", file=sys.stderr)
+        return 1
     except (OSError, ValueError, LexerError, ParserError, SemanticError) as error:
         print(f"KOSCHEI ERROR: {error}", file=sys.stderr)
         return 1
