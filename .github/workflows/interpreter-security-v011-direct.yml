@@ -76,3 +76,5 @@ jobs:
           git add interpreter.py semantic.py tests/test_interpreter.py tests/test_semantic.py docs/language-core.md
           git commit -m "security v0.1.1: redirect confinement (KS3402), unhandled error values (KS1401), call depth limit (KS3105)"
           git push --force-with-lease origin agent/interpreter-security-v0.1.1-direct
+
+# trigger: 2026-07-22 verbatim
