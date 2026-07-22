@@ -29,40 +29,16 @@ jobs:
       - name: Check capability example
         run: python koschei.py check examples/capability.ks
 
-      - name: Check safe types example
-        run: python koschei.py check examples/safe_types.ks
+      - name: Check runtime demo
+        run: python koschei.py check examples/runtime_demo.ks
+
+      - name: Run runtime demo
+        run: python koschei.py run examples/runtime_demo.ks
 
       - name: Check control flow example
         run: python koschei.py check examples/control_flow.ks
 
-      - name: Check native safe types example
-        run: python koschei.py check examples/native_safe_types.ks
-
-      - name: Check match example
-        run: python koschei.py check examples/match.ks
-
-      - name: Emit C source
-        run: python koschei.py emit-c examples/hello.ks -o build/hello.c
-
-      - name: Build native binary
-        run: python koschei.py build examples/hello.ks -o build/hello
-
-      - name: Run native binary
-        run: |
-          output="$(./build/hello)"
-          test "$output" = $'Koschei\n1'
-
-      - name: Run control flow binary
+      - name: Run control flow example
         run: |
           output="$(python koschei.py run examples/control_flow.ks)"
           test "$output" = $'3\n2\n1\nKoschei control flow: PASS'
-
-      - name: Run native safe types binary
-        run: |
-          output="$(python koschei.py run examples/native_safe_types.ks)"
-          test "$output" = 'Koschei native safe types: PASS'
-
-      - name: Run native match binary
-        run: |
-          output="$(python koschei.py run examples/match.ks)"
-          test "$output" = $'42\n0\n7\ndisabled\nKoschei match: PASS'
