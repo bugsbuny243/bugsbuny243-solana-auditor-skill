@@ -122,6 +122,16 @@ class InterpreterTests(unittest.TestCase):
         self.assertIsInstance(result, KsError)
         self.assertIn("KS3404", result.message)
 
+    def test_disk_read_caps_outside_write_returns_ks3402(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            allowed = Path(directory) / "allowed"
+            allowed.mkdir()
+            result = DiskReadCaps(str(allowed)).write(
+                str(Path(directory) / "outside.txt"), "data"
+            )
+        self.assertIsInstance(result, KsError)
+        self.assertIn("KS3402", result.message)
+
     def test_division_by_zero_can_be_handled(self) -> None:
         code, output, _ = self.run_source(
             "fn main() { let result = 1 / 0 or 0 println(result) }"

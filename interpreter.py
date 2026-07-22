@@ -228,13 +228,16 @@ class DiskReadCaps(_DiskCapability):
         )
 
     def write(self, path: str, value: str) -> KsError:
-        return self._denied("write")
+        checked = self._checked_path(path)
+        return checked if isinstance(checked, KsError) else self._denied("write")
 
     def write_file(self, path: str, value: str) -> KsError:
-        return self._denied("write_file")
+        checked = self._checked_path(path)
+        return checked if isinstance(checked, KsError) else self._denied("write_file")
 
     def delete(self, path: str) -> KsError:
-        return self._denied("delete")
+        checked = self._checked_path(path)
+        return checked if isinstance(checked, KsError) else self._denied("delete")
 
 
 class DiskCaps(_DiskCapability):
