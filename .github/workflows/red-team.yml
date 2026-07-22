@@ -1,0 +1,48 @@
+name: Koschei Red Team Compact
+
+on:
+  push:
+    branches:
+      - agent/interpreter-red-team
+
+permissions:
+  contents: read
+
+jobs:
+  red-team:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          show-progress: false
+
+      - name: Run compact red-team report
+        shell: bash
+        run: |
+          set +e
+          python3 -m unittest tests.test_interpreter_red_team -v > /tmp/red-team.log 2>&1
+          status=$?
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          lines = Path('/tmp/red-team.log').read_text(encoding='utf-8').splitlines()
+          print('=== PROBE STATUS ===')
+          for line in lines:
+              if re.match(r'^test_.* \.\.\. (ok|FAIL|ERROR|skipped)', line):
+                  print(line)
+          print('=== FAILURE SIGNALS ===')
+          for line in lines:
+              if (
+                  'AssertionError:' in line
+                  or 'RecursionError:' in line
+                  or 'Sonsuz döngü runtime bütçesi' in line
+                  or 'CROSS_ORIGIN_SECRET' in line
+              ):
+                  print(line)
+          for line in lines:
+              if line.startswith('Ran ') or line.startswith('FAILED') or line == 'OK':
+                  print(line)
+          PY
+          exit "$status"
