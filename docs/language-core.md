@@ -102,6 +102,43 @@ Runtime (çalışma anı) hata kodları:
 | KS3403 | Runtime'da daraltılmış yetkiyi genişletme girişimi |
 | KS3404 | Yetki türünün izin vermediği işlem (ör. salt-okunur yetkiyle yazma) |
 
+## Yetki manifestosu
+
+Bir programın neye erişebildiği, programı çalıştırmadan listelenebilir:
+
+```bash
+python koschei.py caps program.ks           # okunabilir manifesto
+python koschei.py caps program.ks --json    # araçlar için JSON
+python koschei.py caps program.ks --deny net --deny process   # politika kapısı
+```
+
+Örnek çıktı:
+
+```text
+KOSCHEI YETKİ MANİFESTOSU: examples/showcase.ks
+
+DİSK:
+  - /etc/app/  [salt-okunur]  (satır 9)
+  kullanılan işlemler: read
+AĞ:
+  - https://api.example.com  (satır 10)
+ORTAM DEĞİŞKENİ: yok
+SÜREÇ: yok
+
+YETKİ TAŞIYAN FONKSİYONLAR:
+  - load_config(disk: DiskReadCaps)
+
+Bu program yukarıda listelenen kapsamların DIŞINDA hiçbir şeye erişemez.
+```
+
+`--deny` ile belirtilen bir alan talep edilirse çıkış kodu **2** döner; böylece
+CI'da "bu servis ağa çıkmamalı" gibi politikalar zorlanabilir.
+
+Manifesto bilinçli olarak muhafazakârdır: kapsam sabit bir metin değilse
+(örneğin bir değişkenden geliyorsa) `<DİNAMİK>` olarak işaretlenir ve manifesto
+**kesin sayılmaz**. Bilmediğini bildiğini iddia eden bir güvenlik raporu, rapor
+olmaktan çıkar.
+
 ## Native derleme (aşama 1)
 
 Koschei programları Go ara koduna çevrilip tek bir native binary olarak
