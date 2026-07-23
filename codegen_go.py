@@ -20,6 +20,9 @@ from __future__ import annotations
 
 from ast_nodes import (
     AssignmentExpression,
+    ForStatement,
+    ListLiteral,
+    StructLiteral,
     BinaryExpression,
     Block,
     CallExpression,
@@ -361,6 +364,7 @@ class GoCodegen:
     # ------------------------------------------------------------------
 
     def generate(self) -> str:
+        self._reject_unsupported()
         self._reject_capabilities()
 
         lines: list[str] = [
@@ -386,6 +390,15 @@ class GoCodegen:
 
         lines.extend(self._entry_point())
         return "\n".join(lines) + "\n"
+
+    def _reject_unsupported(self) -> None:
+        if self.program.structs:
+            raise CodegenError(
+                "KS4002",
+                "Struct tanımları native derlemede henüz desteklenmiyor; şimdilik "
+                "'koschei.py run' kullanın.",
+                self.program.structs[0].location,
+            )
 
     def _reject_capabilities(self) -> None:
         """Aşama 1: yetki taşıyan programlar bilinçli olarak reddedilir."""
@@ -493,6 +506,14 @@ class GoCodegen:
             lines.append(f"{pad}_ = {value}")
             return lines
 
+        if isinstance(statement, ForStatement):
+            raise CodegenError(
+                "KS4002",
+                "'for ... in' native derlemede henüz desteklenmiyor; şimdilik "
+                "'koschei.py run' kullanın.",
+                statement.location,
+            )
+
         if isinstance(statement, IfStatement):
             return self._if_statement(statement, depth)
 
@@ -572,6 +593,14 @@ class GoCodegen:
 
         if isinstance(expression, CallExpression):
             return self._call(expression, depth)
+
+        if isinstance(expression, (ListLiteral, StructLiteral)):
+            raise CodegenError(
+                "KS4002",
+                "Liste ve struct değerleri native derlemede henüz desteklenmiyor; "
+                "şimdilik 'koschei.py run' kullanın.",
+                expression.location,
+            )
 
         if isinstance(expression, MemberExpression):
             raise CodegenError(
