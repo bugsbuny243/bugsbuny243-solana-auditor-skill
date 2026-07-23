@@ -6,6 +6,8 @@ Hata kodları:
     KS1201  Immutable değere atama
     KS1301  Tip uyuşmazlığı
     KS1401  Ele alınmayan hata değeri
+    KS1501  Struct literalinde alan hatası (eksik, bilinmeyen veya yinelenen)
+    KS1502  Struct'ta böyle bir alan yok
     KS2401  Gerekli yetki bu scope içinde mevcut değil
     KS2402  Kök yetki doğrudan kullanılamaz (önce allow ile daraltılmalı)
     KS2403  Daraltılmış yetki yeniden genişletilemez
@@ -25,6 +27,9 @@ from dataclasses import dataclass
 
 from ast_nodes import (
     AssignmentExpression,
+    ForStatement,
+    ListLiteral,
+    StructLiteral,
     BinaryExpression,
     Block,
     CallExpression,
@@ -90,6 +95,11 @@ BUILTIN_CALLS = {
     "parse_json",
 }
 
+# List üzerinde çağrılabilen metotlar. 'get' aynı zamanda bir yetki metodu
+# adı olduğu için alıcının tipi ÖNCE denetlenir; aksi hâlde liste erişimi
+# yanlışlıkla yetki ihlali sayılırdı.
+LIST_METHODS = {"length", "get", "push", "contains"}
+
 COMPARISON_OPERATORS = {"==", "!=", "<", "<=", ">", ">="}
 LOGICAL_OPERATORS = {"&&", "||"}
 ARITHMETIC_OPERATORS = {"+", "-", "*", "/"}
@@ -125,6 +135,9 @@ class SemanticChecker:
     def __init__(self, program: Program) -> None:
         self.program = program
         self.functions = {declaration.name: declaration for declaration in program.declarations}
+        self.structs = {
+            declaration.name: declaration for declaration in program.structs
+        }
         self.scopes: list[dict[str, Symbol]] = []
         self.variable_count = 0
         self.capability_count = 0
@@ -132,6 +145,18 @@ class SemanticChecker:
     def check(self) -> SemanticReport:
         for declaration in self.program.declarations:
             self._check_function(declaration)
+
+        for declaration in self.program.structs:
+            seen: set[str] = set()
+            for field in declaration.fields:
+                if field.name in seen:
+                    raise SemanticError(
+                        "KS1501",
+                        f"'{declaration.name}' struct'ında '{field.name}' alanı "
+                        "birden fazla tanımlanmış.",
+                        field.location,
+                    )
+                seen.add(field.name)
 
         return SemanticReport(
             functions=len(self.program.declarations),
@@ -214,6 +239,26 @@ class SemanticChecker:
             self._check_block(statement.body)
             return
 
+        if isinstance(statement, ForStatement):
+            iterable_type = self._check_expression(statement.iterable)
+            if iterable_type is not None and iterable_type != "List":
+                raise SemanticError(
+                    "KS1301",
+                    f"'for ... in' yalnızca List üzerinde çalışır, "
+                    f"{iterable_type} bulundu.",
+                    statement.location,
+                )
+            self.scopes.append({})
+            try:
+                self._declare(
+                    Symbol(statement.variable, None, False, statement.location)
+                )
+                self.variable_count += 1
+                self._check_statements(statement.body)
+            finally:
+                self.scopes.pop()
+            return
+
         raise AssertionError(f"Desteklenmeyen statement: {type(statement).__name__}")
 
     def _check_expression(self, expression: Expression) -> str | None:
@@ -232,6 +277,14 @@ class SemanticChecker:
             for part in expression.parts:
                 self._check_expression(part)
             return "String"
+
+        if isinstance(expression, ListLiteral):
+            for item in expression.items:
+                self._check_expression(item)
+            return "List"
+
+        if isinstance(expression, StructLiteral):
+            return self._check_struct_literal(expression)
 
         if isinstance(expression, Identifier):
             symbol = self._resolve(expression.name)
@@ -253,6 +306,19 @@ class SemanticChecker:
 
             if object_type in CAPABILITY_TYPES:
                 return None
+
+            # Struct alan erişimi: alanın tipi döner, olmayan alan derlenmez.
+            declaration = self.structs.get(object_type or "")
+            if declaration is not None:
+                for field in declaration.fields:
+                    if field.name == expression.member:
+                        return str(field.type_ref)
+                raise SemanticError(
+                    "KS1502",
+                    f"'{object_type}' struct'ında '{expression.member}' adında bir "
+                    "alan yok.",
+                    expression.location,
+                )
 
             return object_type
 
@@ -321,6 +387,46 @@ class SemanticChecker:
 
         raise AssertionError(f"Desteklenmeyen expression: {type(expression).__name__}")
 
+    def _check_struct_literal(self, expression: StructLiteral) -> str:
+        declaration = self.structs.get(expression.type_name)
+        if declaration is None:
+            raise SemanticError(
+                "KS1101",
+                f"Tanımsız struct: '{expression.type_name}'.",
+                expression.location,
+            )
+
+        expected = {field.name for field in declaration.fields}
+        provided: set[str] = set()
+
+        for name, value in expression.fields:
+            self._check_expression(value)
+            if name not in expected:
+                raise SemanticError(
+                    "KS1501",
+                    f"'{expression.type_name}' struct'ında '{name}' adında bir alan "
+                    f"yok. Beklenen alanlar: {', '.join(sorted(expected))}.",
+                    expression.location,
+                )
+            if name in provided:
+                raise SemanticError(
+                    "KS1501",
+                    f"'{name}' alanı birden fazla kez verilmiş.",
+                    expression.location,
+                )
+            provided.add(name)
+
+        missing = expected - provided
+        if missing:
+            raise SemanticError(
+                "KS1501",
+                f"'{expression.type_name}' struct'ında eksik alan(lar): "
+                f"{', '.join(sorted(missing))}.",
+                expression.location,
+            )
+
+        return expression.type_name
+
     def _check_binary(self, expression: BinaryExpression) -> str | None:
         left_type = self._check_expression(expression.left)
         right_type = self._check_expression(expression.right)
@@ -377,6 +483,26 @@ class SemanticChecker:
         method_name: str,
         location: SourceLocation,
     ) -> str | None:
+        # List metotları yetki denetiminden ÖNCE ele alınır: 'get' aynı zamanda
+        # bir yetki metodu adıdır ve liste erişimi yanlışlıkla yetki ihlali
+        # sayılmamalıdır.
+        if receiver_type == "List":
+            if method_name in LIST_METHODS:
+                return "List" if method_name == "push" else None
+            raise SemanticError(
+                "KS1502",
+                f"List üzerinde '{method_name}' metodu yok. "
+                f"Kullanılabilir: {', '.join(sorted(LIST_METHODS))}.",
+                location,
+            )
+
+        if receiver_type in self.structs:
+            raise SemanticError(
+                "KS1502",
+                f"'{receiver_type}' struct'ında '{method_name}' adında bir metot yok.",
+                location,
+            )
+
         if receiver_type in ROOT_METHODS:
             mapping = ROOT_METHODS[receiver_type]
             if method_name in mapping:
