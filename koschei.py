@@ -12,6 +12,7 @@ import tempfile
 from dataclasses import asdict
 from pathlib import Path
 
+from capabilities import DOMAIN_ORDER, analyze as analyze_capabilities, render as render_manifest, to_dict as manifest_to_dict
 from codegen_go import CodegenError, generate_go
 from diagnostics import known_codes, lookup as lookup_diagnostic
 from interpreter import KoscheiRuntimeError, run as interpret
@@ -53,6 +54,32 @@ def command_check(path: str) -> int:
 def command_run(path: str) -> int:
     program = parse(read_source(path))
     return interpret(program, [])
+
+
+def command_caps(path: str, as_json: bool, denied: list[str] | None) -> int:
+    program = parse(read_source(path))
+    semantic_check(program)
+    manifest = analyze_capabilities(program)
+
+    if as_json:
+        print(json.dumps(manifest_to_dict(manifest, path), ensure_ascii=False, indent=2))
+    else:
+        print(render_manifest(manifest, path), end="")
+
+    if not denied:
+        return 0
+
+    violations = sorted(
+        {grant.domain for grant in manifest.grants if grant.domain in set(denied)}
+    )
+    if violations:
+        print(
+            "KOSCHEI POLICY: reddedilen yetki alanı talep edildi: "
+            + ", ".join(violations),
+            file=sys.stderr,
+        )
+        return 2
+    return 0
 
 
 def command_emit_go(path: str) -> int:
@@ -148,6 +175,24 @@ def build_parser() -> argparse.ArgumentParser:
         command = subcommands.add_parser(name, help=help_text)
         command.add_argument("source", help=".ks kaynak dosyası")
 
+    caps = subcommands.add_parser(
+        "caps",
+        help="Programın erişebildiği yetkileri listeler (yetki manifestosu)",
+    )
+    caps.add_argument("source", help=".ks kaynak dosyası")
+    caps.add_argument(
+        "--json", action="store_true", help="Manifestoyu JSON olarak yazdırır"
+    )
+    caps.add_argument(
+        "--deny",
+        action="append",
+        choices=list(DOMAIN_ORDER),
+        help=(
+            "Belirtilen yetki alanı talep edilirse çıkış kodu 2 döner "
+            "(CI politikası için; birden fazla kez kullanılabilir)"
+        ),
+    )
+
     build = subcommands.add_parser(
         "build", help="Koschei programını tek bir native binary olarak derler"
     )
@@ -174,6 +219,8 @@ def main(argv: list[str] | None = None) -> int:
             return command_check(args.source)
         if args.command == "run":
             return command_run(args.source)
+        if args.command == "caps":
+            return command_caps(args.source, args.json, args.deny)
         if args.command == "emit-go":
             return command_emit_go(args.source)
         if args.command == "build":
