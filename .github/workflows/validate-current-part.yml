@@ -16,7 +16,7 @@ jobs:
       - name: Checkout target part
         uses: actions/checkout@v4
         with:
-          ref: agent/fmt-v0.5-part1
+          ref: agent/fmt-v0.5-part2
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -28,9 +28,10 @@ jobs:
         with:
           go-version: "1.21"
 
-      - name: Run FMT 1/3 acceptance
+      - name: Run FMT 2/3 acceptance
         shell: bash
         run: |
           set -euo pipefail
           python -m unittest discover -s tests -v
-          python -c "from formatter import format_source; print(format_source('fn main(){let x=1}'))"
+          python koschei.py fmt examples/showcase.ks | head -8
+          python koschei.py fmt --check examples/showcase.ks
