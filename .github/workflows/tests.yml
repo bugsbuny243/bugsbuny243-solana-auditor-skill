@@ -76,3 +76,10 @@ jobs:
             echo "HATA: politika kapısı ağ talebini reddetmeliydi" >&2
             exit 1
           fi
+
+
+      - name: Examples stay canonically formatted
+        run: |
+          for file in examples/*.ks; do
+            python koschei.py fmt --check "$file"
+          done
