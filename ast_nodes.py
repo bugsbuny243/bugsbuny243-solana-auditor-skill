@@ -29,6 +29,20 @@ class Parameter:
 
 
 @dataclass(frozen=True, slots=True)
+class StructField:
+    name: str
+    type_ref: TypeRef
+    location: SourceLocation
+
+
+@dataclass(frozen=True, slots=True)
+class StructDeclaration:
+    name: str
+    fields: tuple[StructField, ...]
+    location: SourceLocation
+
+
+@dataclass(frozen=True, slots=True)
 class Identifier:
     name: str
     location: SourceLocation
@@ -45,6 +59,23 @@ class InterpolatedString:
     """"Selam {name}" — parça listesi: Literal veya değişken/alan erişimi."""
 
     parts: tuple["Expression", ...]
+    location: SourceLocation
+
+
+@dataclass(frozen=True, slots=True)
+class StructLiteral:
+    """UserProfile { id: 1, username: "onur" }"""
+
+    type_name: str
+    fields: tuple[tuple[str, "Expression"], ...]
+    location: SourceLocation
+
+
+@dataclass(frozen=True, slots=True)
+class ListLiteral:
+    """[1, 2, 3]"""
+
+    items: tuple["Expression", ...]
     location: SourceLocation
 
 
@@ -115,6 +146,8 @@ Expression: TypeAlias = (
     Identifier
     | Literal
     | InterpolatedString
+    | StructLiteral
+    | ListLiteral
     | MemberExpression
     | CallExpression
     | AssignmentExpression
@@ -161,12 +194,23 @@ class WhileStatement:
     location: SourceLocation
 
 
+@dataclass(frozen=True, slots=True)
+class ForStatement:
+    """for item in items { ... }"""
+
+    variable: str
+    iterable: Expression
+    body: "Block"
+    location: SourceLocation
+
+
 Statement: TypeAlias = (
     LetStatement
     | ReturnStatement
     | ExpressionStatement
     | IfStatement
     | WhileStatement
+    | ForStatement
 )
 
 
@@ -187,3 +231,4 @@ class FunctionDeclaration:
 @dataclass(frozen=True, slots=True)
 class Program:
     declarations: tuple[FunctionDeclaration, ...]
+    structs: tuple[StructDeclaration, ...] = ()

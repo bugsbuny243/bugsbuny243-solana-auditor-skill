@@ -30,6 +30,9 @@ class TokenType(Enum):
     IF = auto()
     ELSE = auto()
     WHILE = auto()
+    FOR = auto()
+    IN = auto()
+    STRUCT = auto()
     TRUE = auto()
     FALSE = auto()
 
@@ -59,6 +62,8 @@ class TokenType(Enum):
     SLASH = auto()            # /
     SEMICOLON = auto()        # ;
     BANG = auto()             # !
+    LEFT_BRACKET = auto()     # [
+    RIGHT_BRACKET = auto()    # ]
 
     # Çok karakterli semboller
     ARROW = auto()            # ->
@@ -106,6 +111,9 @@ class Lexer:
         "if": TokenType.IF,
         "else": TokenType.ELSE,
         "while": TokenType.WHILE,
+        "for": TokenType.FOR,
+        "in": TokenType.IN,
+        "struct": TokenType.STRUCT,
         "true": TokenType.TRUE,
         "false": TokenType.FALSE,
     }
@@ -123,6 +131,8 @@ class Lexer:
         "DiskReadCaps",
         "EnvCaps",
         "ProcessCaps",
+        "List",
+        "Map",
         "String",
         "Int",
         "Float",
@@ -144,6 +154,8 @@ class Lexer:
         "+": TokenType.PLUS,
         "*": TokenType.STAR,
         ";": TokenType.SEMICOLON,
+        "[": TokenType.LEFT_BRACKET,
+        "]": TokenType.RIGHT_BRACKET,
     }
 
     ESCAPES = {
@@ -421,3 +433,4 @@ fn main(caps: SystemCaps) {
     print("KOSCHEI LEXER TEST\n" + "=" * 60)
     for token in tokenize(sample_code):
         print(token)
+
