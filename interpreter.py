@@ -13,6 +13,9 @@ from urllib.parse import urlsplit
 
 from ast_nodes import (
     AssignmentExpression,
+    ForStatement,
+    ListLiteral,
+    StructLiteral,
     BinaryExpression,
     Block,
     CallExpression,
@@ -46,6 +49,17 @@ class KsError:
         return self.message
 
 
+@dataclass(slots=True)
+class StructValue:
+    """Çalışma anında bir struct örneği."""
+
+    type_name: str
+    fields: dict[str, Any]
+
+
+LIST_METHODS = {"length", "get", "push", "contains"}
+
+
 class _KsUnit:
     __slots__ = ()
 
@@ -73,7 +87,21 @@ def ks_to_string(value: Any) -> str:
         if "." not in text and "e" not in text and "E" not in text:
             text += ".0"
         return text
+    if isinstance(value, list):
+        return "[" + ", ".join(_ks_repr(item) for item in value) + "]"
+    if isinstance(value, StructValue):
+        inner = ", ".join(
+            f"{name}: {_ks_repr(item)}" for name, item in value.fields.items()
+        )
+        return f"{value.type_name} {{ {inner} }}"
     return str(value)
+
+
+def _ks_repr(value: Any) -> str:
+    """Kapsayıcı içindeki değerler: metinler tırnaklı gösterilir."""
+    if isinstance(value, str):
+        return f'"{value}"'
+    return ks_to_string(value)
 
 
 class KoscheiRuntimeError(Exception):
@@ -528,6 +556,28 @@ class Interpreter:
                 return self._execute_statement(statement.else_branch)
             return KsUnit
 
+        if isinstance(statement, ForStatement):
+            iterable = self._evaluate(statement.iterable)
+            if isinstance(iterable, KsError):
+                return iterable
+            if not isinstance(iterable, list):
+                raise KoscheiRuntimeError(
+                    "KS3101",
+                    "'for ... in' yalnızca List üzerinde çalışır.",
+                    statement.location,
+                )
+            result: Any = KsUnit
+            for item in iterable:
+                self.environment.push()
+                try:
+                    self.environment.define(statement.variable, item, False)
+                    result = self._execute_block(statement.body, create_scope=False)
+                finally:
+                    self.environment.pop()
+                if isinstance(result, KsError):
+                    return result
+            return result
+
         if isinstance(statement, WhileStatement):
             result: Any = KsUnit
             while True:
@@ -557,6 +607,24 @@ class Interpreter:
             return "".join(
                 ks_to_string(self._evaluate(part)) for part in expression.parts
             )
+
+        if isinstance(expression, ListLiteral):
+            items: list[Any] = []
+            for item in expression.items:
+                value = self._evaluate(item)
+                if isinstance(value, KsError):
+                    return value
+                items.append(value)
+            return items
+
+        if isinstance(expression, StructLiteral):
+            fields: dict[str, Any] = {}
+            for name, value_expression in expression.fields:
+                value = self._evaluate(value_expression)
+                if isinstance(value, KsError):
+                    return value
+                fields[name] = value
+            return StructValue(expression.type_name, fields)
 
         if isinstance(expression, MemberExpression):
             receiver = self._evaluate(expression.object)
@@ -659,6 +727,22 @@ class Interpreter:
             if name in {"net", "disk", "env", "process"}:
                 return getattr(receiver, name)
 
+        if isinstance(receiver, StructValue):
+            if name in receiver.fields:
+                return receiver.fields[name]
+            raise KoscheiRuntimeError(
+                "KS3101",
+                f"'{receiver.type_name}' struct'ında '{name}' alanı yok.",
+                location,
+            )
+
+        if isinstance(receiver, list):
+            if name in LIST_METHODS:
+                return _BoundMember(receiver, name, location)
+            raise KoscheiRuntimeError(
+                "KS3101", f"List üzerinde '{name}' metodu yok.", location
+            )
+
         if isinstance(receiver, _NarrowedCapability) and name in {
             "allow", "allow_read_only"
         }:
@@ -733,6 +817,29 @@ class Interpreter:
             if name == "contains":
                 self._require_arity(name, arguments, 1, member.location)
                 return str(arguments[0]) in receiver
+
+        if isinstance(receiver, list):
+            if name == "length":
+                self._require_arity(name, arguments, 0, member.location)
+                return len(receiver)
+            if name == "get":
+                self._require_arity(name, arguments, 1, member.location)
+                index = arguments[0]
+                if not isinstance(index, int) or isinstance(index, bool):
+                    return KsError("Liste indeksi Int olmalıdır")
+                if index < 0 or index >= len(receiver):
+                    return KsError(
+                        f"Liste indeksi aralık dışında: {index} "
+                        f"(uzunluk {len(receiver)})"
+                    )
+                return receiver[index]
+            if name == "push":
+                self._require_arity(name, arguments, 1, member.location)
+                # Değerler değişmezdir: push YENİ bir liste döndürür.
+                return receiver + [arguments[0]]
+            if name == "contains":
+                self._require_arity(name, arguments, 1, member.location)
+                return arguments[0] in receiver
 
         method = getattr(receiver, name)
         try:
