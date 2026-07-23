@@ -15,6 +15,11 @@ from __future__ import annotations
 
 from ast_nodes import (
     AssignmentExpression,
+    ForStatement,
+    ListLiteral,
+    StructDeclaration,
+    StructField,
+    StructLiteral,
     BinaryExpression,
     Block,
     CallExpression,
@@ -71,11 +76,36 @@ class Parser:
 
     def parse(self) -> Program:
         declarations: list[FunctionDeclaration] = []
+        structs: list[StructDeclaration] = []
 
         while not self._is_at_end():
-            declarations.append(self._function_declaration())
+            if self._check(TokenType.STRUCT):
+                structs.append(self._struct_declaration())
+            else:
+                declarations.append(self._function_declaration())
 
-        return Program(tuple(declarations))
+        return Program(tuple(declarations), tuple(structs))
+
+    def _struct_declaration(self) -> StructDeclaration:
+        struct_token = self._consume(TokenType.STRUCT, "'struct' bekleniyordu.")
+        name = self._consume(TokenType.TYPE, "Struct adı büyük harfle başlamalıdır.")
+        self._consume(TokenType.LEFT_BRACE, "Struct adından sonra '{' bekleniyordu.")
+
+        fields: list[StructField] = []
+        while not self._check(TokenType.RIGHT_BRACE) and not self._is_at_end():
+            field_name = self._consume(TokenType.IDENTIFIER, "Alan adı bekleniyordu.")
+            self._consume(TokenType.COLON, "Alan adından sonra ':' bekleniyordu.")
+            type_ref = self._type_ref()
+            fields.append(
+                StructField(field_name.value, type_ref, self._location(field_name))
+            )
+            if not self._match(TokenType.COMMA):
+                break
+
+        self._consume(TokenType.RIGHT_BRACE, "Struct sonunda '}' bekleniyordu.")
+        return StructDeclaration(
+            name.value, tuple(fields), self._location(struct_token)
+        )
 
     def _function_declaration(self) -> FunctionDeclaration:
         fn_token = self._consume(TokenType.FN, "Fonksiyon 'fn' ile başlamalıdır.")
@@ -87,6 +117,8 @@ class Parser:
             while True:
                 parameters.append(self._parameter())
                 if not self._match(TokenType.COMMA):
+                    break
+                if self._check(TokenType.RIGHT_PAREN):
                     break
 
         self._consume(TokenType.RIGHT_PAREN, "Parametrelerden sonra ')' bekleniyordu.")
@@ -139,6 +171,8 @@ class Parser:
             return self._if_statement(self._previous())
         if self._match(TokenType.WHILE):
             return self._while_statement(self._previous())
+        if self._match(TokenType.FOR):
+            return self._for_statement(self._previous())
 
         expression = self._expression()
         self._match(TokenType.SEMICOLON)
@@ -176,6 +210,15 @@ class Parser:
                 else_branch = self._block()
 
         return IfStatement(condition, then_block, else_branch, self._location(if_token))
+
+    def _for_statement(self, for_token: Token) -> ForStatement:
+        variable = self._consume(TokenType.IDENTIFIER, "Döngü değişkeni bekleniyordu.")
+        self._consume(TokenType.IN, "Döngü değişkeninden sonra 'in' bekleniyordu.")
+        iterable = self._expression()
+        body = self._block()
+        return ForStatement(
+            variable.value, iterable, body, self._location(for_token)
+        )
 
     def _while_statement(self, while_token: Token) -> WhileStatement:
         condition = self._expression()
@@ -333,6 +376,8 @@ class Parser:
                 arguments.append(self._expression())
                 if not self._match(TokenType.COMMA):
                     break
+                if self._check(TokenType.RIGHT_PAREN):
+                    break
 
         self._consume(TokenType.RIGHT_PAREN, "Fonksiyon çağrısı sonunda ')' bekleniyordu.")
         return CallExpression(callee, tuple(arguments), self._location(left_paren))
@@ -352,8 +397,15 @@ class Parser:
             token = self._previous()
             return self._interpolated_string(token)
 
+        if self._match(TokenType.LEFT_BRACKET):
+            return self._list_literal(self._previous())
+
         if self._match(TokenType.IDENTIFIER, TokenType.TYPE):
             token = self._previous()
+            # 'UserProfile { ... }' bir struct literalidir. Tip adları büyük
+            # harfle başladığı için blok başlangıcıyla karışmaz.
+            if token.type is TokenType.TYPE and self._check(TokenType.LEFT_BRACE):
+                return self._struct_literal(token)
             return Identifier(token.value, self._location(token))
 
         if self._match(TokenType.LEFT_PAREN):
@@ -362,6 +414,35 @@ class Parser:
             return expression
 
         self._error(self._peek(), "İfade bekleniyordu.")
+
+    def _list_literal(self, bracket: Token) -> ListLiteral:
+        items: list[Expression] = []
+        if not self._check(TokenType.RIGHT_BRACKET):
+            while True:
+                items.append(self._expression())
+                if not self._match(TokenType.COMMA):
+                    break
+                # Çok satırlı literallerde sondaki virgül serbesttir.
+                if self._check(TokenType.RIGHT_BRACKET):
+                    break
+        self._consume(TokenType.RIGHT_BRACKET, "Liste sonunda ']' bekleniyordu.")
+        return ListLiteral(tuple(items), self._location(bracket))
+
+    def _struct_literal(self, type_token: Token) -> StructLiteral:
+        self._consume(TokenType.LEFT_BRACE, "Struct literalinde '{' bekleniyordu.")
+        fields: list[tuple[str, Expression]] = []
+
+        while not self._check(TokenType.RIGHT_BRACE) and not self._is_at_end():
+            name = self._consume(TokenType.IDENTIFIER, "Alan adı bekleniyordu.")
+            self._consume(TokenType.COLON, "Alan adından sonra ':' bekleniyordu.")
+            fields.append((name.value, self._expression()))
+            if not self._match(TokenType.COMMA):
+                break
+
+        self._consume(TokenType.RIGHT_BRACE, "Struct literalinde '}' bekleniyordu.")
+        return StructLiteral(
+            type_token.value, tuple(fields), self._location(type_token)
+        )
 
     def _interpolated_string(self, token: Token) -> InterpolatedString:
         location = self._location(token)
