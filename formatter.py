@@ -25,6 +25,7 @@ INDENT = "    "
 # Kendinden önce boşluk istemeyen tokenlar
 NO_SPACE_BEFORE = {
     TokenType.COMMA,
+    TokenType.RIGHT_BRACKET,
     TokenType.COLON,
     TokenType.RIGHT_PAREN,
     TokenType.SEMICOLON,
@@ -34,6 +35,7 @@ NO_SPACE_BEFORE = {
 # Kendinden sonra boşluk istemeyen tokenlar
 NO_SPACE_AFTER = {
     TokenType.LEFT_PAREN,
+    TokenType.LEFT_BRACKET,
     TokenType.DOT,
     TokenType.BANG,
 }
@@ -59,6 +61,7 @@ SPACED_OPERATORS = {
 # Bir isim/değer başlangıcı sayılan tokenlar (tekil '-' ayrımı için)
 VALUE_STARTS = {
     TokenType.IDENTIFIER,
+    TokenType.RIGHT_BRACKET,
     TokenType.TYPE,
     TokenType.NUMBER,
     TokenType.STRING,
@@ -85,6 +88,8 @@ class FormatterError(Exception):
 # tek istisnalar: 'or return' (RETURN burada ifade içindedir) ve 'else if'.
 STATEMENT_STARTERS = {
     TokenType.LET,
+    TokenType.FOR,
+    TokenType.STRUCT,
     TokenType.RETURN,
     TokenType.IF,
     TokenType.WHILE,
@@ -112,41 +117,81 @@ def _logical_lines(tokens: list[Token]) -> list[tuple[list[Token], bool]]:
     Kaynağın satır yapısı korunmaz; kanonik yapı tokenlardan yeniden kurulur.
     Yazarın bıraktığı boş satırlar (en fazla bir tane) korunur.
     """
+    depths = _literal_depths(tokens)
+
     rows: list[tuple[list[Token], bool]] = []
     current: list[Token] = []
     current_blank = False
+    previous_depth = 0
 
-    for token in tokens:
+    for index, token in enumerate(tokens):
         if current:
             previous = current[-1]
             # Boş satır, kapanan satıra değil AÇILAN satıra aittir.
             gap = token.line > previous.line + 1
-            if _breaks_before(token, previous):
+            if _breaks_before(token, previous, depths[index], previous_depth):
                 rows.append((current, current_blank))
                 current = []
                 current_blank = gap
         current.append(token)
+        previous_depth = depths[index]
 
     if current:
         rows.append((current, current_blank))
     return rows
 
 
-def _breaks_before(token: Token, previous: Token) -> bool:
+def _literal_depths(tokens: list[Token]) -> list[int]:
+    """Her token için 'struct literali içinde miyim' derinliğini hesaplar.
+
+    'UserProfile { ... }' ile blok '{ ... }' aynı token'ı kullanır. Literal
+    parantezleri satır kırmamalıdır; ayrım, '{' işaretinden hemen önce bir TİP
+    adı bulunmasıyla yapılır.
+    """
+    depths: list[int] = []
+    stack: list[bool] = []
+    depth = 0
+
+    for index, token in enumerate(tokens):
+        if token.type is TokenType.LEFT_BRACE:
+            is_literal = index > 0 and tokens[index - 1].type is TokenType.TYPE
+            stack.append(is_literal)
+            depths.append(depth)
+            if is_literal:
+                depth += 1
+        elif token.type is TokenType.RIGHT_BRACE:
+            is_literal = stack.pop() if stack else False
+            if is_literal:
+                depth -= 1
+                depths.append(depth + 1)
+            else:
+                depths.append(depth)
+        else:
+            depths.append(depth)
+
+    return depths
+
+
+def _breaks_before(
+    token: Token, previous: Token, depth: int, previous_depth: int
+) -> bool:
     # Yorum satır sonundaysa satırda kalır; kendi satırındaysa yeni satır açar.
     if token.type is TokenType.COMMENT:
         return token.line > previous.line
     if previous.type is TokenType.COMMENT:
         return True
 
-    if previous.type is TokenType.LEFT_BRACE:
-        return True
-    if token.type is TokenType.RIGHT_BRACE:
-        return True
-    if previous.type is TokenType.RIGHT_BRACE:
-        return token.type is not TokenType.ELSE
+    # Süslü parantez kuralları yalnızca BLOK parantezleri için geçerlidir;
+    # struct literalinin içi satır kırmaz.
+    if depth == 0 and previous_depth == 0:
+        if previous.type is TokenType.LEFT_BRACE:
+            return True
+        if token.type is TokenType.RIGHT_BRACE:
+            return True
+        if previous.type is TokenType.RIGHT_BRACE:
+            return token.type is not TokenType.ELSE
 
-    if token.type in STATEMENT_STARTERS:
+    if depth == 0 and token.type in STATEMENT_STARTERS:
         # 'or return' tek bir ifadedir, bölünmez.
         if token.type is TokenType.RETURN and previous.type is TokenType.OR:
             return False
@@ -195,15 +240,18 @@ def check_source(source: str) -> bool:
 
 
 def _closes_first(row: list[Token]) -> bool:
-    return bool(row) and row[0].type is TokenType.RIGHT_BRACE
+    return bool(row) and row[0].type in {
+        TokenType.RIGHT_BRACE,
+        TokenType.RIGHT_BRACKET,
+    }
 
 
 def _net_braces(row: list[Token], *, skip_leading_close: bool) -> int:
     total = 0
     for index, token in enumerate(row):
-        if token.type is TokenType.LEFT_BRACE:
+        if token.type in {TokenType.LEFT_BRACE, TokenType.LEFT_BRACKET}:
             total += 1
-        elif token.type is TokenType.RIGHT_BRACE:
+        elif token.type in {TokenType.RIGHT_BRACE, TokenType.RIGHT_BRACKET}:
             if index == 0 and skip_leading_close:
                 continue
             total -= 1

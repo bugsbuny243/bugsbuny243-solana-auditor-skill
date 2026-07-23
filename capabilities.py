@@ -16,6 +16,9 @@ from dataclasses import dataclass, field
 
 from ast_nodes import (
     AssignmentExpression,
+    ForStatement,
+    ListLiteral,
+    StructLiteral,
     BinaryExpression,
     Block,
     CallExpression,
@@ -162,6 +165,8 @@ def _collect_bindings(
                     Block((statement.else_branch,)), roots, bindings
                 )
         elif isinstance(statement, WhileStatement):
+            _collect_bindings(statement.body, roots, bindings)
+        elif isinstance(statement, ForStatement):
             _collect_bindings(statement.body, roots, bindings)
 
 
@@ -338,6 +343,10 @@ def _walk_statement(statement: Statement):
         yield from _walk_expression(statement.condition)
         for inner in statement.body.statements:
             yield from _walk_statement(inner)
+    elif isinstance(statement, ForStatement):
+        yield from _walk_expression(statement.iterable)
+        for inner in statement.body.statements:
+            yield from _walk_statement(inner)
 
 
 def _walk_expression(expression: Expression):
@@ -359,6 +368,12 @@ def _walk_expression(expression: Expression):
     elif isinstance(expression, InterpolatedString):
         for part in expression.parts:
             yield from _walk_expression(part)
+    elif isinstance(expression, ListLiteral):
+        for item in expression.items:
+            yield from _walk_expression(item)
+    elif isinstance(expression, StructLiteral):
+        for _, value in expression.fields:
+            yield from _walk_expression(value)
     elif isinstance(expression, OrReturnExpression):
         yield from _walk_expression(expression.value)
         if expression.error is not None:
