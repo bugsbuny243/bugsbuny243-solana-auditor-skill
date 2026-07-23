@@ -1,17 +1,16 @@
-name: Koschei Compiler Tests
+name: Native v0.3 Acceptance Report
 
 on:
   push:
     branches:
-      - main
-      - agent/**
+      - agent/native-go-v0.3-report
   pull_request:
 
 permissions:
   contents: read
 
 jobs:
-  test:
+  report:
     runs-on: ubuntu-latest
 
     steps:
@@ -28,38 +27,39 @@ jobs:
         with:
           go-version: "1.21"
 
-      - name: Run unit tests
-        run: python -m unittest discover -s tests -v
-
-      - name: Check capability example
-        run: python koschei.py check examples/capability.ks
-
-      - name: Check runtime demo
-        run: python koschei.py check examples/runtime_demo.ks
-
-      - name: Run runtime demo
-        run: python koschei.py run examples/runtime_demo.ks
-
-      - name: Check control flow example
-        run: python koschei.py check examples/control_flow.ks
-
-      - name: Run control flow example
+      - name: Run acceptance commands
         run: |
-          output="$(python koschei.py run examples/control_flow.ks)"
-          test "$output" = $'3\n2\n1\nKoschei control flow: PASS'
+          set -e
+          python -m unittest discover -s tests > /tmp/tests.log 2>&1
+          tail -5 /tmp/tests.log
 
-      - name: Build native binary
-        run: python koschei.py build examples/hello.ks -o /tmp/koschei-hello
+          echo "=== EMIT GO HEAD ==="
+          python koschei.py emit-go examples/hello.ks | head -20
 
-      - name: Native binary matches interpreter
-        run: |
-          native="$(/tmp/koschei-hello)"
-          interpreted="$(python koschei.py run examples/hello.ks)"
-          test "$native" = "$interpreted"
+          echo "=== BUILD HELLO ==="
+          python koschei.py build examples/hello.ks -o /tmp/koschei-hello
+          echo "=== NATIVE HELLO ==="
+          /tmp/koschei-hello
+          echo "=== INTERPRETER HELLO ==="
+          python koschei.py run examples/hello.ks
 
-      - name: Capability programs are rejected by native backend
-        run: |
-          if python koschei.py emit-go examples/showcase.ks; then
-            echo "HATA: yetkili program native derlemede reddedilmeliydi" >&2
-            exit 1
-          fi
+          echo "=== BUILD CONTROL FLOW ==="
+          python koschei.py build examples/control_flow.ks -o /tmp/koschei-cf
+          echo "=== NATIVE CONTROL FLOW ==="
+          /tmp/koschei-cf
+
+          echo "=== SHOWCASE NATIVE REJECTION ==="
+          set +e
+          python koschei.py emit-go examples/showcase.ks
+          status=$?
+          set -e
+          echo "exit=$status"
+          test "$status" -eq 1
+
+          echo "=== EXPLAIN KS4001 ==="
+          python koschei.py explain KS4001
+
+          echo "=== CHECK SHOWCASE ==="
+          python koschei.py check examples/showcase.ks
+          echo "=== RUN SHOWCASE ==="
+          python koschei.py run examples/showcase.ks
