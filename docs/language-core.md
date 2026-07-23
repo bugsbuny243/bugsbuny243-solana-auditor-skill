@@ -87,6 +87,9 @@ let c = f() or { println("logla") }  // blokla ele al
 | KS2402 | Kök yetki doğrudan kullanılamaz; önce daraltılmalı |
 | KS2403 | Daraltılmış yetki yeniden genişletilemez |
 | KS2404 | Bu yetki türü ilgili işleme izin vermez |
+| KS4001 | Yetki içeren program native derlemede henüz desteklenmiyor (aşama 1) |
+| KS4002 | Native derlemede desteklenmeyen dil yapısı |
+| KS4003 | Çağrıda argüman sayısı uyuşmuyor |
 
 Runtime (çalışma anı) hata kodları:
 
@@ -99,6 +102,35 @@ Runtime (çalışma anı) hata kodları:
 | KS3403 | Runtime'da daraltılmış yetkiyi genişletme girişimi |
 | KS3404 | Yetki türünün izin vermediği işlem (ör. salt-okunur yetkiyle yazma) |
 
+## Native derleme (aşama 1)
+
+Koschei programları Go ara koduna çevrilip tek bir native binary olarak
+derlenebilir:
+
+```bash
+python koschei.py emit-go program.ks        # üretilen Go ara kaynağı (Go gerekmez)
+python koschei.py build program.ks -o prog  # tek dosya binary (Go kurulu olmalı)
+./prog                                       # hiçbir bağımlılık gerektirmez
+```
+
+Üretilen Go kodu bir **ara temsildir**, kullanıcıya gösterilmek için değildir:
+okunabilirlik değil davranış eşliği hedeflenir. `build` çıktısı ile `run`
+çıktısının aynı olması CI'da her koşuda doğrulanır.
+
+**Aşama 1 kapsamı:** yetki (capability) içermeyen programlar. Yetki taşıyan
+programlar bilinçli olarak reddedilir (KS4001) ve `run` ile çalıştırılır. Sıra
+kasıtlıdır: yetki denetimi üretilen binary'ye taşınmadan yetkili program
+derlemek, dili kâğıt üstünde güvenli ama gerçekte açık bırakırdı. Native yetki
+runtime'ı aşama 2'nin konusudur.
+
+Native tarafta halihazırda korunan davranışlar: hatalar değerdir (`or`'un üç
+biçimi), çağrı derinliği sınırı (KS3105), sıfıra bölme bir hata değeridir, ve
+değer gösterimi host dilden bağımsızdır (`true`/`false`, `4.0`).
+
+**Bilinen sınırlar:** Int aritmetiği native tarafta 64 bit ile sınırlıdır
+(yorumlayıcıda Python'un sınırsız tam sayıları kullanılır); çok büyük sayılarla
+çalışan programlarda iki hedef farklılaşabilir.
+
 ## v0.1 compiler hattı
 
 ```text
@@ -107,7 +139,8 @@ Runtime (çalışma anı) hata kodları:
     -> parser.py    (öncelik zinciri, üç 'or' biçimi, kontrol akışı)
     -> ast_nodes.py
     -> semantic.py  (scope, tip, kök/daraltılmış yetki denetimi)
-    -> interpreter / code generator (sonraki aşama)
+    -> interpreter.py  (tree-walking runtime, yetki denetimi çalışma anında)
+    -> codegen_go.py   (Go ara kodu -> native binary, aşama 1)
 ```
 
 ## CLI
