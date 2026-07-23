@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - agent/caps-fmt-validation
+  pull_request:
 
 permissions:
   contents: read
