@@ -59,6 +59,23 @@ class _KsUnit:
 KsUnit = _KsUnit()
 
 
+def ks_to_string(value: Any) -> str:
+    """Koschei değerlerinin kanonik metin gösterimi.
+
+    Host dilin (Python) gösterimine güvenilmez: kaynak kodda 'true' yazan bir
+    değer çıktıda da 'true' görünmelidir. Native derleyici de aynı kuralları
+    uygular; böylece 'run' ve derlenmiş binary aynı çıktıyı verir.
+    """
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, float):
+        text = repr(value)
+        if "." not in text and "e" not in text and "E" not in text:
+            text += ".0"
+        return text
+    return str(value)
+
+
 class KoscheiRuntimeError(Exception):
     def __init__(self, code: str, message: str, location: SourceLocation) -> None:
         self.code = code
@@ -537,7 +554,9 @@ class Interpreter:
             return self.environment.resolve(expression.name, expression.location).value
 
         if isinstance(expression, InterpolatedString):
-            return "".join(str(self._evaluate(part)) for part in expression.parts)
+            return "".join(
+                ks_to_string(self._evaluate(part)) for part in expression.parts
+            )
 
         if isinstance(expression, MemberExpression):
             receiver = self._evaluate(expression.object)
@@ -677,15 +696,15 @@ class Interpreter:
             return self._call_function(callee, arguments)
         if callee == "println":
             self._require_arity("println", arguments, 1, location)
-            print(arguments[0])
+            print(ks_to_string(arguments[0]))
             return KsUnit
         if callee == "print":
             self._require_arity("print", arguments, 1, location)
-            print(arguments[0], end="")
+            print(ks_to_string(arguments[0]), end="")
             return KsUnit
         if callee == "Error":
             self._require_arity("Error", arguments, 1, location)
-            return KsError(str(arguments[0]))
+            return KsError(ks_to_string(arguments[0]))
         if isinstance(callee, _BoundMember):
             return self._invoke_member(callee, arguments)
         raise KoscheiRuntimeError(
