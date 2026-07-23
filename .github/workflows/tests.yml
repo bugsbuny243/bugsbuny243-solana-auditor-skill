@@ -63,3 +63,16 @@ jobs:
             echo "HATA: yetkili program native derlemede reddedilmeliydi" >&2
             exit 1
           fi
+
+      - name: Capability manifest for showcase
+        run: python koschei.py caps examples/showcase.ks
+
+      - name: Pure example requests no capabilities
+        run: python koschei.py caps examples/hello.ks --deny disk --deny net --deny env --deny process
+
+      - name: Policy gate rejects undeclared network access
+        run: |
+          if python koschei.py caps examples/showcase.ks --deny net; then
+            echo "HATA: politika kapısı ağ talebini reddetmeliydi" >&2
+            exit 1
+          fi
