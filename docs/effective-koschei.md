@@ -6,6 +6,10 @@
 
 Koschei kodunu bir bakışta tanımalısınız. Aşağıdaki yedi ilke o görünümü tanımlar.
 
+Girinti, aralık ve satır düzeni tartışma konusu değildir: `python koschei.py fmt
+--write dosya.ks` ne yaparsa doğru biçim odur. Bu belge biçimi değil, **karar
+verme tarzını** anlatır — biçimlendiricinin dayatamayacağı kısmı.
+
 ---
 
 ## 1. Yetki tepeden daraltılır, aşağıya dar paslanır
