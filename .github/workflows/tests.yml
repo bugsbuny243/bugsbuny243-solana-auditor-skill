@@ -30,36 +30,45 @@ jobs:
       - name: Run acceptance commands
         run: |
           set -e
-          python -m unittest discover -s tests > /tmp/tests.log 2>&1
-          tail -5 /tmp/tests.log
+          {
+            python -m unittest discover -s tests > /tmp/tests.log 2>&1
+            tail -5 /tmp/tests.log
 
-          echo "=== EMIT GO HEAD ==="
-          python koschei.py emit-go examples/hello.ks | head -20
+            echo "=== EMIT GO HEAD ==="
+            python koschei.py emit-go examples/hello.ks | head -20
 
-          echo "=== BUILD HELLO ==="
-          python koschei.py build examples/hello.ks -o /tmp/koschei-hello
-          echo "=== NATIVE HELLO ==="
-          /tmp/koschei-hello
-          echo "=== INTERPRETER HELLO ==="
-          python koschei.py run examples/hello.ks
+            echo "=== BUILD HELLO ==="
+            python koschei.py build examples/hello.ks -o /tmp/koschei-hello
+            echo "=== NATIVE HELLO ==="
+            /tmp/koschei-hello
+            echo "=== INTERPRETER HELLO ==="
+            python koschei.py run examples/hello.ks
 
-          echo "=== BUILD CONTROL FLOW ==="
-          python koschei.py build examples/control_flow.ks -o /tmp/koschei-cf
-          echo "=== NATIVE CONTROL FLOW ==="
-          /tmp/koschei-cf
+            echo "=== BUILD CONTROL FLOW ==="
+            python koschei.py build examples/control_flow.ks -o /tmp/koschei-cf
+            echo "=== NATIVE CONTROL FLOW ==="
+            /tmp/koschei-cf
 
-          echo "=== SHOWCASE NATIVE REJECTION ==="
-          set +e
-          python koschei.py emit-go examples/showcase.ks
-          status=$?
-          set -e
-          echo "exit=$status"
-          test "$status" -eq 1
+            echo "=== SHOWCASE NATIVE REJECTION ==="
+            set +e
+            python koschei.py emit-go examples/showcase.ks
+            status=$?
+            set -e
+            echo "exit=$status"
+            test "$status" -eq 1
 
-          echo "=== EXPLAIN KS4001 ==="
-          python koschei.py explain KS4001
+            echo "=== EXPLAIN KS4001 ==="
+            python koschei.py explain KS4001
 
-          echo "=== CHECK SHOWCASE ==="
-          python koschei.py check examples/showcase.ks
-          echo "=== RUN SHOWCASE ==="
-          python koschei.py run examples/showcase.ks
+            echo "=== CHECK SHOWCASE ==="
+            python koschei.py check examples/showcase.ks
+            echo "=== RUN SHOWCASE ==="
+            python koschei.py run examples/showcase.ks
+          } 2>&1 | tee /tmp/native-v03-acceptance.txt
+
+      - name: Upload acceptance output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-v03-acceptance
+          path: /tmp/native-v03-acceptance.txt
