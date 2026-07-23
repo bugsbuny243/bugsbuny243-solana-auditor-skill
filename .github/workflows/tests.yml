@@ -83,3 +83,12 @@ jobs:
           for file in examples/*.ks; do
             python koschei.py fmt --check "$file"
           done
+
+
+      - name: Run data-structure example
+        run: |
+          output="$(python koschei.py run examples/holders.ks)"
+          case "$output" in
+            *KRITIK*) ;;
+            *) echo "HATA: holders örneği beklenen çıktıyı vermedi" >&2; exit 1 ;;
+          esac
