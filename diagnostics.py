@@ -109,6 +109,48 @@ CATALOG: dict[str, Diagnostic] = {
             "disk.read(path) or { println(\"config yok, varsayılanla devam\") }"
         ),
     ),
+    "KS1501": Diagnostic(
+        code="KS1501",
+        title="Struct literalinde alan hatası",
+        summary=(
+            "Struct oluşturulurken bir alan eksik bırakıldı, tanımsız bir alan verildi "
+            "ya da aynı alan birden fazla kez yazıldı."
+        ),
+        why=(
+            "Bir struct'ın tüm alanları oluşturulduğu anda bilinir. Eksik alan, sonradan "
+            "'boş' bir değerle karşılaşma riski demektir; Koschei'de null olmadığı için "
+            "bu boşluk baştan kapatılır."
+        ),
+        fix=(
+            "Struct tanımındaki alanların tamamını, tam olarak birer kez verin. Alan "
+            "adlarını tanımla karşılaştırın."
+        ),
+        example=(
+            "struct UserProfile { id: Int, username: String }\n"
+            'let user = UserProfile { id: 1, username: "onur" }'
+        ),
+    ),
+    "KS1502": Diagnostic(
+        code="KS1502",
+        title="Böyle bir alan veya metot yok",
+        summary=(
+            "Struct'ta bulunmayan bir alana erişildi ya da bir değer üzerinde "
+            "desteklenmeyen bir metot çağrıldı."
+        ),
+        why=(
+            "Alan ve metot adları derleme zamanında denetlenir; yazım hatası çalışma "
+            "anına taşınmaz."
+        ),
+        fix=(
+            "Alan adını struct tanımıyla karşılaştırın. List için kullanılabilir "
+            "metotlar: length, get, push, contains."
+        ),
+        example=(
+            "let items = [1, 2, 3]\n"
+            "let count = items.length()\n"
+            "let first = items.get(0) or 0"
+        ),
+    ),
     "KS2401": Diagnostic(
         code="KS2401",
         title="Gerekli yetki bu scope içinde mevcut değil",
