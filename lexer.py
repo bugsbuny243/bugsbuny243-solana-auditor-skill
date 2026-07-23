@@ -40,6 +40,10 @@ class TokenType(Enum):
     STRING_INTERP = auto()
     NUMBER = auto()
 
+    # Yalnızca keep_comments=True iken üretilir. Derleyici hattı yorumları
+    # görmez; bu token biçimlendirici (ks fmt) gibi araçlar içindir.
+    COMMENT = auto()
+
     # Tek karakterli semboller
     LEFT_PAREN = auto()       # (
     RIGHT_PAREN = auto()      # )
@@ -152,8 +156,9 @@ class Lexer:
         "}": "}",
     }
 
-    def __init__(self, source: str) -> None:
+    def __init__(self, source: str, *, keep_comments: bool = False) -> None:
         self.source = source
+        self.keep_comments = keep_comments
         self.start = 0
         self.current = 0
         self.line = 1
@@ -180,10 +185,15 @@ class Lexer:
             return
 
         # // yorumları satır sonuna kadar atlanır.
+        # keep_comments açıksa atılmaz, COMMENT token'ı olarak korunur.
         if char == "/":
             if self._match("/"):
                 while self._peek() not in {"\n", "\0"}:
                     self._advance()
+                if self.keep_comments:
+                    self._add_token(
+                        TokenType.COMMENT, self.source[self.start:self.current]
+                    )
                 return
             self._add_token(TokenType.SLASH, "/")
             return
@@ -382,9 +392,14 @@ class Lexer:
         )
 
 
-def tokenize(source: str) -> list[Token]:
-    """Kolay kullanım için yardımcı fonksiyon."""
-    return Lexer(source).tokenize()
+def tokenize(source: str, *, keep_comments: bool = False) -> list[Token]:
+    """Kolay kullanım için yardımcı fonksiyon.
+
+    keep_comments varsayılan olarak kapalıdır: derleyici hattı (parser, semantic,
+    interpreter, codegen) yorumları görmez ve davranışı değişmez. Biçimlendirici
+    gibi kaynak metni yeniden üreten araçlar bunu açar.
+    """
+    return Lexer(source, keep_comments=keep_comments).tokenize()
 
 
 if __name__ == "__main__":
