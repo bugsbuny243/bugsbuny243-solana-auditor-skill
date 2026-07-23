@@ -16,7 +16,7 @@ CODE_IN_SOURCE = re.compile(r'"(KS\d{4})"')
 class DiagnosticsCatalogTests(unittest.TestCase):
     def test_every_code_used_in_compiler_has_an_explanation(self) -> None:
         used: set[str] = set()
-        for name in ("semantic.py", "interpreter.py"):
+        for name in ("semantic.py", "interpreter.py", "codegen_go.py"):
             source = (REPO_ROOT / name).read_text(encoding="utf-8")
             used.update(CODE_IN_SOURCE.findall(source))
 

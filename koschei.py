@@ -5,10 +5,14 @@ from __future__ import annotations
 
 import argparse
 import json
+import shutil
+import subprocess
 import sys
+import tempfile
 from dataclasses import asdict
 from pathlib import Path
 
+from codegen_go import CodegenError, generate_go
 from diagnostics import known_codes, lookup as lookup_diagnostic
 from interpreter import KoscheiRuntimeError, run as interpret
 from lexer import LexerError, tokenize
@@ -51,6 +55,58 @@ def command_run(path: str) -> int:
     return interpret(program, [])
 
 
+def command_emit_go(path: str) -> int:
+    program = parse(read_source(path))
+    semantic_check(program)
+    print(generate_go(program), end="")
+    return 0
+
+
+def command_build(path: str, output: str | None) -> int:
+    program = parse(read_source(path))
+    semantic_check(program)
+    go_source = generate_go(program)
+
+    go_binary = shutil.which("go")
+    if go_binary is None:
+        print(
+            "KOSCHEI ERROR: 'go' bulunamadı. Native derleme için Go kurulu olmalıdır "
+            "(https://go.dev/dl). Go kurmadan çalıştırmak için 'koschei.py run' "
+            "kullanabilir, üretilen Go kaynağını görmek için 'koschei.py emit-go' "
+            "çalıştırabilirsiniz.",
+            file=sys.stderr,
+        )
+        return 1
+
+    source_path = Path(path)
+    target = Path(output) if output else source_path.with_suffix("")
+    target = target.resolve()
+
+    with tempfile.TemporaryDirectory(prefix="koschei-build-") as workspace:
+        directory = Path(workspace)
+        (directory / "main.go").write_text(go_source, encoding="utf-8")
+        (directory / "go.mod").write_text(
+            "module koscheiprogram\n\ngo 1.21\n", encoding="utf-8"
+        )
+        completed = subprocess.run(
+            [go_binary, "build", "-o", str(target), "."],
+            cwd=directory,
+            capture_output=True,
+            text=True,
+        )
+
+    if completed.returncode != 0:
+        print(
+            "KOSCHEI ERROR: Go derlemesi başarısız oldu. Bu bir derleyici hatasıdır; "
+            "lütfen kaynak dosyayla birlikte bildirin.\n" + completed.stderr.strip(),
+            file=sys.stderr,
+        )
+        return 1
+
+    print(f"KOSCHEI BUILD: {target}")
+    return 0
+
+
 def command_explain(code: str) -> int:
     diagnostic = lookup_diagnostic(code)
     if diagnostic is None:
@@ -87,9 +143,16 @@ def build_parser() -> argparse.ArgumentParser:
         ("ast", "Parser AST çıktısını JSON olarak yazdırır"),
         ("check", "Sözdizimi, değişmezlik ve capability kurallarını doğrular"),
         ("run", "Koschei programını yorumlayıcı ile çalıştırır"),
+        ("emit-go", "Üretilen Go ara kaynağını yazdırır (Go kurulumu gerekmez)"),
     ):
         command = subcommands.add_parser(name, help=help_text)
         command.add_argument("source", help=".ks kaynak dosyası")
+
+    build = subcommands.add_parser(
+        "build", help="Koschei programını tek bir native binary olarak derler"
+    )
+    build.add_argument("source", help=".ks kaynak dosyası")
+    build.add_argument("-o", "--output", help="Çıktı binary yolu")
 
     explain = subcommands.add_parser(
         "explain", help="Bir Koschei hata kodunu açıklar ve düzeltme örneği verir"
@@ -111,13 +174,24 @@ def main(argv: list[str] | None = None) -> int:
             return command_check(args.source)
         if args.command == "run":
             return command_run(args.source)
+        if args.command == "emit-go":
+            return command_emit_go(args.source)
+        if args.command == "build":
+            return command_build(args.source, args.output)
         if args.command == "explain":
             return command_explain(args.code)
     except KoscheiRuntimeError as error:
         print(f"KOSCHEI RUNTIME ERROR: {error}", file=sys.stderr)
         print_explain_hint(str(error))
         return 1
-    except (OSError, ValueError, LexerError, ParserError, SemanticError) as error:
+    except (
+        OSError,
+        ValueError,
+        LexerError,
+        ParserError,
+        SemanticError,
+        CodegenError,
+    ) as error:
         print(f"KOSCHEI ERROR: {error}", file=sys.stderr)
         print_explain_hint(str(error))
         return 1

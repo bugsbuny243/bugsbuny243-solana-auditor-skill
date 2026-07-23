@@ -248,6 +248,56 @@ CATALOG: dict[str, Diagnostic] = {
         fix="Gerekli kapsamı kök yetkiden yeniden türetin.",
         example="let wide = caps.disk.allow(\"/var/data/\")",
     ),
+    "KS4001": Diagnostic(
+        code="KS4001",
+        title="Yetki içeren program bu aşamada native derlenemez",
+        summary=(
+            "Program bir yetki (capability) parametresi alıyor ya da bir yetki işlemi "
+            "çağırıyor; native derleme aşama 1 yalnızca yetki içermeyen programları "
+            "destekler."
+        ),
+        why=(
+            "Yetki denetimi üretilen binary'ye taşınmadan yetkili program derlemek, dili "
+            "kâğıt üstünde güvenli ama gerçekte açık bırakırdı. Bu yüzden native yetki "
+            "runtime'ı tamamlanana kadar (aşama 2) bu programlar bilinçli olarak "
+            "reddedilir."
+        ),
+        fix=(
+            "Programı şimdilik 'koschei.py run' ile çalıştırın; yetki denetimleri orada "
+            "tam olarak uygulanır. Üretilen Go ara kaynağını görmek için "
+            "'koschei.py emit-go' kullanabilirsiniz."
+        ),
+        example="python koschei.py run examples/showcase.ks",
+    ),
+    "KS4002": Diagnostic(
+        code="KS4002",
+        title="Native derlemede desteklenmeyen yapı",
+        summary="Kullanılan dil yapısı henüz Go üreticisi tarafından desteklenmiyor.",
+        why=(
+            "Native derleyici dilin tamamını aşamalı olarak kapsar. Desteklenmeyen bir "
+            "yapıyı yanlış çevirmektense açıkça reddetmek tercih edilir: sessiz yanlış "
+            "çeviri, hata ayıklanamayan bir binary üretirdi."
+        ),
+        fix=(
+            "Programı 'koschei.py run' ile çalıştırın ya da yapıyı desteklenen bir "
+            "biçimde yeniden yazın."
+        ),
+        example="python koschei.py run program.ks",
+    ),
+    "KS4003": Diagnostic(
+        code="KS4003",
+        title="Çağrıda argüman sayısı uyuşmuyor",
+        summary="Fonksiyon, tanımındakinden farklı sayıda argümanla çağrıldı.",
+        why=(
+            "Argüman sayısı bir sözleşmedir; uyuşmazlık derleme anında yakalanır, çalışma "
+            "anına bırakılmaz."
+        ),
+        fix="Çağrıyı fonksiyon imzasındaki parametre sayısına göre düzeltin.",
+        example=(
+            "fn add(a: Int, b: Int) -> Int { return a + b }\n"
+            "let total = add(2, 3)"
+        ),
+    ),
     "KS3404": Diagnostic(
         code="KS3404",
         title="Çalışma anı: izin verilmeyen işlem",
