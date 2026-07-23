@@ -15,6 +15,7 @@ from pathlib import Path
 from capabilities import DOMAIN_ORDER, analyze as analyze_capabilities, render as render_manifest, to_dict as manifest_to_dict
 from codegen_go import CodegenError, generate_go
 from diagnostics import known_codes, lookup as lookup_diagnostic
+from formatter import check_source, format_source
 from interpreter import KoscheiRuntimeError, run as interpret
 from lexer import LexerError, tokenize
 from parser import ParserError, parse
@@ -54,6 +55,32 @@ def command_check(path: str) -> int:
 def command_run(path: str) -> int:
     program = parse(read_source(path))
     return interpret(program, [])
+
+
+def command_fmt(path: str, write: bool, check_only: bool) -> int:
+    source = read_source(path)
+    formatted = format_source(source)
+
+    if check_only:
+        if formatted == source:
+            return 0
+        print(
+            f"KOSCHEI FMT: {path} kanonik biçimde değil "
+            "('koschei.py fmt --write' ile düzeltin).",
+            file=sys.stderr,
+        )
+        return 1
+
+    if write:
+        if formatted == source:
+            print(f"KOSCHEI FMT: {path} zaten kanonik biçimde.")
+            return 0
+        Path(path).write_text(formatted, encoding="utf-8")
+        print(f"KOSCHEI FMT: {path} yeniden biçimlendirildi.")
+        return 0
+
+    print(formatted, end="")
+    return 0
 
 
 def command_caps(path: str, as_json: bool, denied: list[str] | None) -> int:
@@ -175,6 +202,20 @@ def build_parser() -> argparse.ArgumentParser:
         command = subcommands.add_parser(name, help=help_text)
         command.add_argument("source", help=".ks kaynak dosyası")
 
+    formatter = subcommands.add_parser(
+        "fmt",
+        help="Kaynağı kanonik Koschei biçimine getirir",
+    )
+    formatter.add_argument("source", help=".ks kaynak dosyası")
+    formatter.add_argument(
+        "-w", "--write", action="store_true", help="Dosyayı yerinde günceller"
+    )
+    formatter.add_argument(
+        "--check",
+        action="store_true",
+        help="Biçim bozuksa çıkış kodu 1 döner (CI kapısı); dosyayı değiştirmez",
+    )
+
     caps = subcommands.add_parser(
         "caps",
         help="Programın erişebildiği yetkileri listeler (yetki manifestosu)",
@@ -219,6 +260,8 @@ def main(argv: list[str] | None = None) -> int:
             return command_check(args.source)
         if args.command == "run":
             return command_run(args.source)
+        if args.command == "fmt":
+            return command_fmt(args.source, args.write, args.check)
         if args.command == "caps":
             return command_caps(args.source, args.json, args.deny)
         if args.command == "emit-go":
