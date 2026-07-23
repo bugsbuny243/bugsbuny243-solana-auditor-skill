@@ -102,6 +102,31 @@ Runtime (çalışma anı) hata kodları:
 | KS3403 | Runtime'da daraltılmış yetkiyi genişletme girişimi |
 | KS3404 | Yetki türünün izin vermediği işlem (ör. salt-okunur yetkiyle yazma) |
 
+## Biçimlendirme (`ks fmt`)
+
+Koschei kodunun tek bir doğru görünümü vardır ve bunu araç belirler:
+
+```bash
+python koschei.py fmt program.ks           # kanonik biçimi yazdırır
+python koschei.py fmt --write program.ks   # dosyayı yerinde düzeltir
+python koschei.py fmt --check program.ks   # biçim bozuksa çıkış kodu 1 (CI kapısı)
+```
+
+Kurallar: 4 boşluk girinti, işleçlerin iki yanında tek boşluk, `name: Type`,
+`,` sonrası tek boşluk, dosya sonunda tek satır sonu, art arda en fazla bir boş
+satır. Süslü parantezler ve deyim anahtar kelimeleri (`let`, `return`, `if`,
+`while`, `fn`) her zaman satır kırar; böylece tek satıra sıkıştırılmış kod açılır.
+`or return` ve `else if` bölünmez. Yorumlar korunur.
+
+İki garanti testlerle sabitlenmiştir: biçimlendirme **değişmezdir**
+(`fmt(fmt(x)) == fmt(x)`) ve **anlamı korur** (yorum dışı token akışı
+değişmez). Depodaki örneklerin kanonik biçimde kalması CI'da doğrulanır.
+
+**Bilinen sınır:** anahtar kelimeyle başlamayan deyimler (ör. arka arkaya iki
+`println(...)`) aynı satıra yazılmışsa ayrılmaz. Biçimlendirici yazarın ayırdığı
+satırları asla birleştirmez; tokenlardan deyim sınırı tahmin etmek yanlış
+birleştirmelere yol açacağı için denenmez.
+
 ## Yetki manifestosu
 
 Bir programın neye erişebildiği, programı çalıştırmadan listelenebilir:
@@ -202,3 +227,4 @@ Tanı katalogu sabittir: yalnızca açıklama üretir, hiçbir denetimi gevşetm
 - Struct, enum/match, generics, `for` döngüsü, fonksiyon çağrılarında argüman tipi denetimi yok.
 - Yol/origin sınırları (`allow("/etc/app/")` kapsamı) statik olarak tip düzeyinde, dinamik olarak runtime aşamasında zorlanacaktır; runtime henüz yazılmadı.
 - Tanı mesajları şimdilik Türkçedir; İngilizce yerelleştirme planlanmaktadır.
+
