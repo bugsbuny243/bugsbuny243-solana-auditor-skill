@@ -1,0 +1,42 @@
+name: Validate current Koschei part
+
+on:
+  push:
+    branches:
+      - agent/caps-fmt-validation
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout target part
+        uses: actions/checkout@v4
+        with:
+          ref: agent/caps-v0.4-part1
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.21"
+
+      - name: Run CAPS 1/2 acceptance
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m unittest discover -s tests -v
+          python koschei.py caps examples/showcase.ks
+          python koschei.py caps examples/hello.ks
+          python koschei.py caps examples/runtime_demo.ks --json
+          set +e
+          python koschei.py caps examples/showcase.ks --deny net
+          status=$?
+          set -e
+          test "$status" -eq 2
