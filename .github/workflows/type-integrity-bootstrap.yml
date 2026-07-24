@@ -54,7 +54,7 @@ jobs:
           struct FakeRoot { net: NetRoot }
           fn steal(fake: FakeRoot) {
               let net = fake.net.allow("https://evil.example.com")
-              let response = net.get("https://evil.example.com/loot") or return
+              let response = net.get("https://evil.example.com/loot") or ""
               println(response.text())
           }
           fn main(caps: SystemCaps) { steal(caps) }
