@@ -13,7 +13,9 @@ from dataclasses import asdict
 from pathlib import Path
 
 from capabilities import DOMAIN_ORDER, analyze as analyze_capabilities, render as render_manifest, to_dict as manifest_to_dict
+from capabilities import analyze_graph
 from codegen_go import CodegenError, generate_go
+from modules import ModuleError, check_graph, load_graph, namespaces
 from diagnostics import known_codes, lookup as lookup_diagnostic
 from formatter import check_source, format_source
 from interpreter import KoscheiRuntimeError, run as interpret
@@ -22,11 +24,21 @@ from parser import ParserError, parse
 from semantic import SemanticError, check as semantic_check
 
 
-def read_source(path: str) -> str:
+def require_ks_extension(path: str) -> Path:
     source_path = Path(path)
     if source_path.suffix != ".ks":
         raise ValueError("Koschei kaynak dosyası '.ks' uzantılı olmalıdır.")
-    return source_path.read_text(encoding="utf-8")
+    return source_path
+
+
+def read_source(path: str) -> str:
+    return require_ks_extension(path).read_text(encoding="utf-8")
+
+
+def open_graph(path: str):
+    """Kök dosyayı doğrular ve modül grafiğini yükler."""
+    require_ks_extension(path)
+    return load_graph(path)
 
 
 def command_tokens(path: str) -> int:
@@ -42,19 +54,28 @@ def command_ast(path: str) -> int:
 
 
 def command_check(path: str) -> int:
-    program = parse(read_source(path))
-    report = semantic_check(program)
+    graph = open_graph(path)
+    report = check_graph(graph)
+    module_count = len(graph.modules)
+    suffix = f", {module_count} modül" if module_count > 1 else ""
     print(
-        "KOSCHEI CHECK: PASS "
-        f"({report.functions} fonksiyon, {report.variables} değişken, "
-        f"{report.capability_values} capability değeri)"
+        f"KOSCHEI CHECK: PASS ({report.functions} fonksiyon, "
+        f"{report.variables} değişken, {report.capability_values} capability değeri"
+        f"{suffix})"
     )
     return 0
 
 
 def command_run(path: str) -> int:
-    program = parse(read_source(path))
-    return interpret(program, [])
+    graph = open_graph(path)
+    check_graph(graph)
+    root = graph.root_module
+    return interpret(
+        root.program,
+        [],
+        namespaces=namespaces(graph),
+        imports=root.imports,
+    )
 
 
 def command_fmt(path: str, write: bool, check_only: bool) -> int:
@@ -84,9 +105,11 @@ def command_fmt(path: str, write: bool, check_only: bool) -> int:
 
 
 def command_caps(path: str, as_json: bool, denied: list[str] | None) -> int:
-    program = parse(read_source(path))
-    semantic_check(program)
-    manifest = analyze_capabilities(program)
+    graph = open_graph(path)
+    check_graph(graph)
+    # Manifesto tüm grafiği kapsar: içe aktarılan modüllerin talep ettiği
+    # yetkiler de programın saldırı yüzeyine dahildir.
+    manifest = analyze_graph(graph)
 
     if as_json:
         print(json.dumps(manifest_to_dict(manifest, path), ensure_ascii=False, indent=2))
@@ -110,16 +133,16 @@ def command_caps(path: str, as_json: bool, denied: list[str] | None) -> int:
 
 
 def command_emit_go(path: str) -> int:
-    program = parse(read_source(path))
-    semantic_check(program)
-    print(generate_go(program), end="")
+    graph = open_graph(path)
+    check_graph(graph)
+    print(generate_go(graph.root_module.program), end="")
     return 0
 
 
 def command_build(path: str, output: str | None) -> int:
-    program = parse(read_source(path))
-    semantic_check(program)
-    go_source = generate_go(program)
+    graph = open_graph(path)
+    check_graph(graph)
+    go_source = generate_go(graph.root_module.program)
 
     go_binary = shutil.which("go")
     if go_binary is None:
@@ -281,6 +304,7 @@ def main(argv: list[str] | None = None) -> int:
         ParserError,
         SemanticError,
         CodegenError,
+        ModuleError,
     ) as error:
         print(f"KOSCHEI ERROR: {error}", file=sys.stderr)
         print_explain_hint(str(error))
@@ -291,4 +315,3 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
