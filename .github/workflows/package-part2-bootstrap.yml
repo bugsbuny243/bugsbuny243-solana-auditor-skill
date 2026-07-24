@@ -1,0 +1,72 @@
+name: Packaging Part 2 Bootstrap
+
+on:
+  pull_request:
+
+permissions:
+  contents: write
+
+jobs:
+  package-docs:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout bootstrap branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.21"
+
+      - name: Build exact packaging documentation commit
+        shell: bash
+        run: |
+          set -euxo pipefail
+          cp docs/language-core.md /tmp/language-core.md
+
+          git fetch origin main
+          git reset --hard origin/main
+
+          cp /tmp/language-core.md docs/language-core.md
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path("docs/effective-koschei.md")
+          text = path.read_text(encoding="utf-8")
+          old = (
+              "Girinti, aralık ve satır düzeni tartışma konusu değildir: `python koschei.py fmt\n"
+              "--write dosya.ks` ne yaparsa doğru biçim odur. Bu belge biçimi değil, **karar\n"
+          )
+          new = (
+              "Girinti, aralık ve satır düzeni tartışma konusu değildir: `ks fmt\n"
+              "--write dosya.ks` ne yaparsa doğru biçim odur. Bu belge biçimi değil, **karar\n"
+          )
+          if old not in text:
+              raise SystemExit("beklenen effective-koschei çağrısı bulunamadı")
+          path.write_text(text.replace(old, new), encoding="utf-8")
+          PY
+
+          python -m pip install -e .
+          python -m unittest discover -s tests -v
+          test "$(grep -c 'koschei.py' docs/language-core.md || true)" -eq 0
+          test "$(grep -c 'koschei.py' docs/effective-koschei.md || true)" -eq 0
+          ks run examples/app.ks
+
+          rm -rf koschei_lang.egg-info
+          git add docs/language-core.md docs/effective-koschei.md
+          git diff --cached --check
+          test "$(git diff --cached --name-only | wc -l)" -eq 2
+          test "$(git diff --cached --name-only | sort)" = $'docs/effective-koschei.md\ndocs/language-core.md'
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "packaging 2/2: documentation uses the installed ks command"
+          git push --force origin HEAD:agent/packaging-2-2-final
