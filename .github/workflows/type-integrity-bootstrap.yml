@@ -1,0 +1,148 @@
+name: Capability Type Integrity Bootstrap
+
+on:
+  pull_request:
+
+permissions:
+  contents: write
+
+jobs:
+  harden:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout bootstrap branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.21"
+
+      - name: Prove exploit, patch, and re-attack
+        shell: bash
+        run: |
+          set -euo pipefail
+          exec > >(tee /tmp/type-integrity-security.log) 2>&1
+
+          cp .security/type_integrity_patch.py /tmp/type_integrity_patch.py
+          git fetch origin main
+          git reset --hard origin/main
+          python -m pip install -e .
+
+          echo "=== BASELINE: prove vulnerable compiler and runtime path ==="
+          python - <<'PY'
+          import io
+          import pathlib
+          import tempfile
+          from contextlib import redirect_stderr, redirect_stdout
+
+          from koschei.capabilities import analyze
+          from koschei.cli import main
+          from koschei.interpreter import Interpreter, NetCaps, Response
+          from koschei.parser import parse
+          from koschei.semantic import check
+
+          source = '''
+          struct FakeRoot { net: NetRoot }
+          fn steal(fake: FakeRoot) {
+              let net = fake.net.allow("https://evil.example.com")
+              let response = net.get("https://evil.example.com/loot") or return
+              println(response.text())
+          }
+          fn main(caps: SystemCaps) { steal(caps) }
+          '''
+          program = parse(source)
+          check(program)
+
+          reached = []
+          original_get = NetCaps.get
+          def fake_get(self, url):
+              reached.append(url)
+              return Response("TYPE-LAUNDERING-REACHED-NET", 200)
+          NetCaps.get = fake_get
+          try:
+              Interpreter(program, []).execute_main()
+          finally:
+              NetCaps.get = original_get
+          assert reached == ["https://evil.example.com/loot"], reached
+
+          manifest = analyze(program)
+          assert "net" not in manifest.domains(), manifest.domains()
+
+          with tempfile.TemporaryDirectory() as directory:
+              path = pathlib.Path(directory) / "tunnel.ks"
+              path.write_text(source, encoding="utf-8")
+              out = io.StringIO()
+              err = io.StringIO()
+              with redirect_stdout(out), redirect_stderr(err):
+                  exit_code = main(["caps", str(path), "--deny", "net"])
+              assert exit_code == 0, (exit_code, out.getvalue(), err.getvalue())
+          print("BASELINE EXPLOIT CONFIRMED: check PASS, runtime net reached, deny net bypassed")
+          PY
+
+          echo "=== APPLY TYPE-INTEGRITY WALL ==="
+          python /tmp/type_integrity_patch.py
+          python -m py_compile koschei/semantic.py koschei/interpreter.py koschei/capabilities.py
+          python -m pip install -e .
+
+          echo "=== FULL UNIT AND ATTACK REGRESSION SUITE ==="
+          python -m unittest discover -s tests -v
+
+          echo "=== EXACT EXPLOIT MUST NOW FAIL CLOSED ==="
+          cat >/tmp/root-tunnel.ks <<'KS'
+          struct FakeRoot { net: NetRoot }
+          fn steal(fake: FakeRoot) {
+              let net = fake.net.allow("https://evil.example.com")
+              let response = net.get("https://evil.example.com/loot") or return
+          }
+          fn main(caps: SystemCaps) { steal(caps) }
+          KS
+          if python -m koschei check /tmp/root-tunnel.ks; then
+            echo "HATA: root capability tunnel still compiled" >&2
+            exit 1
+          fi
+
+          echo "=== CAPABILITY-BEARING STRUCT MUST TRIP DENY POLICY ==="
+          cat >/tmp/net-bundle.ks <<'KS'
+          struct NetBox { net: NetCaps }
+          fn use(box: NetBox) {
+              let response = box.net.get("https://api.example.com") or return
+          }
+          fn main() { println("safe") }
+          KS
+          if python -m koschei caps /tmp/net-bundle.ks --deny net; then
+            echo "HATA: --deny net missed capability-bearing struct" >&2
+            exit 1
+          fi
+
+          echo "=== NORMAL COMPILER SMOKE GATES ==="
+          python -m koschei check examples/showcase.ks
+          python -m koschei run examples/runtime_demo.ks
+          python -m koschei run examples/control_flow.ks
+          python -m koschei run examples/holders.ks
+          python -m koschei caps examples/showcase.ks --deny process
+
+          rm -rf koschei_lang.egg-info
+          git add koschei/semantic.py koschei/interpreter.py koschei/capabilities.py tests/test_type_integrity_security.py
+          test "$(git diff --cached --name-only | wc -l)" -eq 4
+          git diff --cached --check
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "security: block capability type laundering and root tunnels"
+          git push --force origin HEAD:refs/heads/agent/security-type-integrity-final
+
+      - name: Upload type-integrity diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: type-integrity-security-log
+          path: /tmp/type-integrity-security.log
+          retention-days: 1
