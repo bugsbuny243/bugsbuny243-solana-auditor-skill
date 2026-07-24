@@ -4,7 +4,7 @@ path = Path("koschei/diagnostics.py")
 text = path.read_text(encoding="utf-8")
 marker = '''    "KS3402": Diagnostic(
 '''
-entry = '''    "KS3401": Diagnostic(
+entry = r'''    "KS3401": Diagnostic(
         code="KS3401",
         title="Çalışma anı: capability tip bütünlüğü ihlali",
         summary=(
