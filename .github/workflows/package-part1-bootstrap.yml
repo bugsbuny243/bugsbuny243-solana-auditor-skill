@@ -30,9 +30,12 @@ jobs:
           go-version: "1.21"
 
       - name: Build exact packaging commit from main
+        id: build
+        continue-on-error: true
         shell: bash
         run: |
-          set -euo pipefail
+          exec > >(tee /tmp/packaging-bootstrap.log) 2>&1
+          set -euxo pipefail
           mkdir -p /tmp/koschei-packaging-payload
           cp paketle.sh /tmp/koschei-paketle.sh
           cp -a .packaging/part1/. /tmp/koschei-packaging-payload/
@@ -71,3 +74,16 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git commit -m "packaging 1/2: koschei package layout, console scripts, pyproject"
           git push --force origin HEAD:agent/packaging-1-2
+
+      - name: Upload bootstrap diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: packaging-bootstrap-log
+          path: /tmp/packaging-bootstrap.log
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Fail when packaging validation failed
+        if: steps.build.outcome != 'success'
+        run: exit 1
