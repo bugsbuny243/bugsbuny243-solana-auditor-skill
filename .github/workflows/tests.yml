@@ -92,3 +92,25 @@ jobs:
             *KRITIK*) ;;
             *) echo "HATA: holders örneği beklenen çıktıyı vermedi" >&2; exit 1 ;;
           esac
+
+      - name: Multi-file program runs
+        run: |
+          output="$(python koschei.py run examples/app.ks)"
+          case "$output" in
+            *KRITIK*) ;;
+            *) echo "HATA: app örneği beklenen çıktıyı vermedi" >&2; exit 1 ;;
+          esac
+
+      - name: Supply-chain attack still does not compile
+        run: |
+          if python koschei.py check examples/supply_chain/main.ks; then
+            echo "HATA: yetkisiz modül derlenmemeliydi" >&2
+            exit 1
+          fi
+
+      - name: Module examples stay canonically formatted
+        run: |
+          python koschei.py fmt --check examples/app.ks
+          python koschei.py fmt --check examples/risk.ks
+          python koschei.py fmt --check examples/supply_chain/main.ks
+          python koschei.py fmt --check examples/supply_chain/analytics.ks
