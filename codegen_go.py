@@ -392,6 +392,13 @@ class GoCodegen:
         return "\n".join(lines) + "\n"
 
     def _reject_unsupported(self) -> None:
+        if self.program.imports:
+            raise CodegenError(
+                "KS4002",
+                "Modül içe aktarımı native derlemede henüz desteklenmiyor; şimdilik "
+                "'koschei.py run' kullanın.",
+                self.program.imports[0].location,
+            )
         if self.program.structs:
             raise CodegenError(
                 "KS4002",
