@@ -323,6 +323,29 @@ CATALOG: dict[str, Diagnostic] = {
         fix="Değeri 'let mut' ile tanımlayın.",
         example="let mut total = 0\ntotal = total + 1",
     ),
+    "KS3401": Diagnostic(
+        code="KS3401",
+        title="Çalışma anı: capability tip bütünlüğü ihlali",
+        summary=(
+            "Runtime, bir capability veya capability taşıyan değerin başka bir tip "
+            "gibi geçirildiğini ya da döndürüldüğünü tespit etti."
+        ),
+        why=(
+            "Semantic denetim normalde bu kodu derlemeden reddeder. Runtime aynı "
+            "sözleşmeyi savunma derinliği için yeniden kontrol eder; bu hata, tip "
+            "denetiminin atlatıldığı veya bozuk bir AST çalıştırıldığı anlamına gelir."
+        ),
+        fix=(
+            "SystemCaps'i yalnızca main parametresi olarak kullanın. Kök yetkiyi main "
+            "içinde allow/allow_read_only ile daraltın ve fonksiyonlara gerçek NetCaps, "
+            "DiskCaps gibi jetonları, bildirilen tiple birebir uyumlu olarak geçirin."
+        ),
+        example=(
+            "fn fetch(net: NetCaps) {\n"
+            "    let response = net.get(\"https://api.example.com\") or return\n"
+            "}"
+        ),
+    ),
     "KS3402": Diagnostic(
         code="KS3402",
         title="Kapsam dışı erişim",

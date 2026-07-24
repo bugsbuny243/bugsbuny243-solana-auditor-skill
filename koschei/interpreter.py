@@ -469,6 +469,9 @@ class Interpreter:
         self.functions = {
             declaration.name: declaration for declaration in program.declarations
         }
+        self.structs = {
+            declaration.name: declaration for declaration in program.structs
+        }
         # Modül anahtarı -> o modülün fonksiyon tablosu
         self.namespaces = namespaces or {}
         # Yerel import adı -> modül anahtarı
@@ -507,12 +510,16 @@ class Interpreter:
             )
         if len(main.parameters) == 0:
             arguments: list[Any] = []
-        elif len(main.parameters) == 1:
+        elif (
+            len(main.parameters) == 1
+            and main.parameters[0].type_ref.names == ("SystemCaps",)
+        ):
             arguments = [SystemCaps()]
         else:
             raise KoscheiRuntimeError(
-                "KS3101",
-                "'main' fonksiyonu sıfır veya bir parametre almalıdır.",
+                "KS3401",
+                "'main' sıfır parametre veya yalnızca bir SystemCaps parametresi "
+                "almalıdır; runtime başka bir tipe kök yetki enjekte etmez.",
                 main.location,
             )
         return self._call_function(main, arguments)
@@ -530,6 +537,18 @@ class Interpreter:
                 f"{len(arguments)} verildi.",
                 function.location,
             )
+
+        for parameter, value in zip(function.parameters, arguments):
+            if not self._runtime_matches_type(value, parameter.type_ref.names):
+                raise KoscheiRuntimeError(
+                    "KS3401",
+                    f"'{function.name}' çağrısında '{parameter.name}: "
+                    f"{parameter.type_ref}' sözleşmesi ihlal edildi; "
+                    f"{self._runtime_type_name(value)} verildi. Runtime capability "
+                    "type-laundering girişimini reddetti.",
+                    parameter.location,
+                )
+
         if self._depth >= self.MAX_CALL_DEPTH:
             raise KoscheiRuntimeError(
                 "KS3105",
@@ -547,9 +566,24 @@ class Interpreter:
             for parameter, value in zip(function.parameters, arguments):
                 self.environment.define(parameter.name, value, False)
             try:
-                return self._execute_block(function.body, create_scope=False)
+                result = self._execute_block(function.body, create_scope=False)
             except _ReturnSignal as signal:
-                return signal.value
+                result = signal.value
+
+            if (
+                function.return_type is not None
+                and not self._runtime_matches_type(
+                    result,
+                    function.return_type.names,
+                )
+            ):
+                raise KoscheiRuntimeError(
+                    "KS3401",
+                    f"'{function.name}' dönüş sözleşmesi {function.return_type} "
+                    f"beklerken {self._runtime_type_name(result)} döndürdü.",
+                    function.location,
+                )
+            return result
         finally:
             self._depth -= 1
             self.environment = previous
@@ -657,10 +691,28 @@ class Interpreter:
 
         if isinstance(expression, StructLiteral):
             fields: dict[str, Any] = {}
+            declaration = self.structs.get(expression.type_name)
+            expected = (
+                {field.name: field for field in declaration.fields}
+                if declaration is not None
+                else {}
+            )
             for name, value_expression in expression.fields:
                 value = self._evaluate(value_expression)
                 if isinstance(value, KsError):
                     return value
+                field = expected.get(name)
+                if (
+                    field is not None
+                    and not self._runtime_matches_type(value, field.type_ref.names)
+                ):
+                    raise KoscheiRuntimeError(
+                        "KS3401",
+                        f"'{expression.type_name}.{name}' alanı "
+                        f"{field.type_ref} beklerken "
+                        f"{self._runtime_type_name(value)} aldı.",
+                        value_expression.location,
+                    )
                 fields[name] = value
             return StructValue(expression.type_name, fields)
 
@@ -903,6 +955,83 @@ class Interpreter:
             raise KoscheiRuntimeError(
                 "KS3101", f"'{name}' çağrısı geçersiz: {error}", member.location
             ) from error
+
+    def _runtime_matches_type(
+        self,
+        value: Any,
+        expected_names,
+    ) -> bool:
+        for name in expected_names:
+            if name == "SystemCaps" and isinstance(value, SystemCaps):
+                return True
+            if name == "NetRoot" and isinstance(value, NetRoot):
+                return True
+            if name == "DiskRoot" and isinstance(value, DiskRoot):
+                return True
+            if name == "EnvRoot" and isinstance(value, EnvRoot):
+                return True
+            if name == "ProcessRoot" and isinstance(value, ProcessRoot):
+                return True
+            if name == "NetCaps" and isinstance(value, NetCaps):
+                return True
+            if name == "DiskCaps" and isinstance(value, DiskCaps):
+                return True
+            if name == "DiskReadCaps" and isinstance(value, DiskReadCaps):
+                return True
+            if name == "EnvCaps" and isinstance(value, EnvCaps):
+                return True
+            if name == "ProcessCaps" and isinstance(value, ProcessCaps):
+                return True
+            if name == "Response" and isinstance(value, Response):
+                return True
+            if name == "Error" and isinstance(value, KsError):
+                return True
+            if name == "Void" and value is KsUnit:
+                return True
+            if name == "String" and isinstance(value, str):
+                return True
+            if name == "Bool" and isinstance(value, bool):
+                return True
+            if name == "Int" and isinstance(value, int) and not isinstance(value, bool):
+                return True
+            if name == "Float" and isinstance(value, float):
+                return True
+            if name == "List" and isinstance(value, list):
+                return True
+            if isinstance(value, StructValue) and value.type_name == name:
+                return True
+        return False
+
+    @staticmethod
+    def _runtime_type_name(value: Any) -> str:
+        if value is KsUnit:
+            return "Void"
+        if isinstance(value, StructValue):
+            return value.type_name
+        if isinstance(value, KsError):
+            return "Error"
+        mapping = (
+            (SystemCaps, "SystemCaps"),
+            (NetRoot, "NetRoot"),
+            (DiskRoot, "DiskRoot"),
+            (EnvRoot, "EnvRoot"),
+            (ProcessRoot, "ProcessRoot"),
+            (NetCaps, "NetCaps"),
+            (DiskCaps, "DiskCaps"),
+            (DiskReadCaps, "DiskReadCaps"),
+            (EnvCaps, "EnvCaps"),
+            (ProcessCaps, "ProcessCaps"),
+            (Response, "Response"),
+            (bool, "Bool"),
+            (str, "String"),
+            (float, "Float"),
+            (int, "Int"),
+            (list, "List"),
+        )
+        for runtime_type, name in mapping:
+            if isinstance(value, runtime_type):
+                return name
+        return type(value).__name__
 
     @staticmethod
     def _require_arity(

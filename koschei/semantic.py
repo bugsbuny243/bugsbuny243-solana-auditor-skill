@@ -85,6 +85,7 @@ for _methods in NARROWED_METHODS.values():
     GUARDED_METHODS.update(_methods)
 
 CAPABILITY_TYPES = set(ROOT_METHODS) | set(NARROWED_METHODS) | {"SystemCaps"}
+ROOT_CAPABILITY_TYPES = set(ROOT_METHODS) | {"SystemCaps"}
 
 BUILTIN_CALLS = {
     "print",
@@ -174,11 +175,9 @@ class SemanticChecker:
         self.scopes: list[dict[str, Symbol]] = []
         self.variable_count = 0
         self.capability_count = 0
+        self.current_function: FunctionDeclaration | None = None
 
     def check(self) -> SemanticReport:
-        for declaration in self.program.declarations:
-            self._check_function(declaration)
-
         for declaration in self.program.structs:
             seen: set[str] = set()
             for field in declaration.fields:
@@ -191,14 +190,81 @@ class SemanticChecker:
                     )
                 seen.add(field.name)
 
+                roots = set(field.type_ref.names) & ROOT_CAPABILITY_TYPES
+                if roots:
+                    raise SemanticError(
+                        "KS2402",
+                        f"'{declaration.name}.{field.name}' alanı kök capability "
+                        f"taşıyamaz ({', '.join(sorted(roots))}). Kök yetki yalnızca "
+                        "main içindeki SystemCaps'ten daraltılmalı; struct'a yalnızca "
+                        "NetCaps / DiskCaps gibi daraltılmış jetonlar konabilir.",
+                        field.location,
+                    )
+
+        for declaration in self.program.declarations:
+            self._validate_function_signature(declaration)
+
+        for declaration in self.program.declarations:
+            self._check_function(declaration)
+
         return SemanticReport(
             functions=len(self.program.declarations),
             variables=self.variable_count,
             capability_values=self.capability_count,
         )
 
+    def _validate_function_signature(self, function: FunctionDeclaration) -> None:
+        if function.name == "main":
+            if len(function.parameters) > 1:
+                raise SemanticError(
+                    "KS1301",
+                    "'main' sıfır parametre veya yalnızca bir SystemCaps parametresi "
+                    "alabilir.",
+                    function.location,
+                )
+            if (
+                len(function.parameters) == 1
+                and function.parameters[0].type_ref.names != ("SystemCaps",)
+            ):
+                parameter = function.parameters[0]
+                raise SemanticError(
+                    "KS2401",
+                    "'main' tek parametre alıyorsa bu parametre tam olarak SystemCaps "
+                    f"olmalıdır; {parameter.type_ref} bulundu. Runtime başka bir tipe "
+                    "SystemCaps enjekte etmez.",
+                    parameter.location,
+                )
+
+        for parameter in function.parameters:
+            if (
+                function.name == "main"
+                and parameter.type_ref.names == ("SystemCaps",)
+            ):
+                continue
+            roots = set(parameter.type_ref.names) & ROOT_CAPABILITY_TYPES
+            if roots:
+                raise SemanticError(
+                    "KS2402",
+                    f"'{function.name}' fonksiyonunun '{parameter.name}' parametresi "
+                    f"kök capability taşıyamaz ({', '.join(sorted(roots))}). Kökü "
+                    "main içinde daraltın ve yalnızca daraltılmış jetonu geçirin.",
+                    parameter.location,
+                )
+
+        if function.return_type is not None:
+            roots = set(function.return_type.names) & ROOT_CAPABILITY_TYPES
+            if roots:
+                raise SemanticError(
+                    "KS2402",
+                    f"'{function.name}' kök capability döndüremez "
+                    f"({', '.join(sorted(roots))}). Kök yetkiler dolaşıma çıkamaz.",
+                    function.return_type.location,
+                )
+
     def _check_function(self, function: FunctionDeclaration) -> None:
         self.scopes.append({})
+        previous_function = self.current_function
+        self.current_function = function
         try:
             for parameter in function.parameters:
                 type_name = str(parameter.type_ref)
@@ -212,6 +278,7 @@ class SemanticChecker:
                 )
             self._check_statements(function.body)
         finally:
+            self.current_function = previous_function
             self.scopes.pop()
 
     def _check_block(self, block: Block) -> None:
@@ -240,8 +307,19 @@ class SemanticChecker:
             return
 
         if isinstance(statement, ReturnStatement):
-            if statement.value is not None:
-                self._check_expression(statement.value)
+            value_type = (
+                "Void"
+                if statement.value is None
+                else self._check_expression(statement.value)
+            )
+            function = self.current_function
+            if function is not None and function.return_type is not None:
+                self._require_assignable(
+                    function.return_type.names,
+                    value_type,
+                    f"'{function.name}' dönüş değeri",
+                    statement.location,
+                )
             return
 
         if isinstance(statement, ExpressionStatement):
@@ -466,11 +544,10 @@ class SemanticChecker:
                 expression.location,
             )
 
-        expected = {field.name for field in declaration.fields}
+        expected = {field.name: field for field in declaration.fields}
         provided: set[str] = set()
 
         for name, value in expression.fields:
-            self._check_expression(value)
             if name not in expected:
                 raise SemanticError(
                     "KS1501",
@@ -484,9 +561,18 @@ class SemanticChecker:
                     f"'{name}' alanı birden fazla kez verilmiş.",
                     expression.location,
                 )
+
+            value_type = self._check_expression(value)
+            field = expected[name]
+            self._require_assignable(
+                field.type_ref.names,
+                value_type,
+                f"'{expression.type_name}.{name}' alanı",
+                value.location,
+            )
             provided.add(name)
 
-        missing = expected - provided
+        missing = set(expected) - provided
         if missing:
             raise SemanticError(
                 "KS1501",
@@ -547,6 +633,78 @@ class SemanticChecker:
 
         return None
 
+    def _type_names(self, type_name: str | None) -> set[str]:
+        if type_name is None:
+            return set()
+        return {
+            part.strip()
+            for part in type_name.split(" or ")
+            if part.strip()
+        }
+
+    def _name_is_sensitive(
+        self,
+        name: str,
+        seen: set[str] | None = None,
+    ) -> bool:
+        if name in CAPABILITY_TYPES:
+            return True
+        declaration = self.structs.get(name)
+        if declaration is None:
+            return False
+        visited = set(seen or ())
+        if name in visited:
+            return False
+        visited.add(name)
+        return any(
+            self._name_is_sensitive(type_name, visited)
+            for field in declaration.fields
+            for type_name in field.type_ref.names
+        )
+
+    def _types_are_sensitive(self, names: set[str]) -> bool:
+        return any(self._name_is_sensitive(name) for name in names)
+
+    def _require_assignable(
+        self,
+        expected_names,
+        actual_type: str | None,
+        subject: str,
+        location: SourceLocation,
+    ) -> None:
+        expected = set(expected_names)
+        actual = self._type_names(actual_type)
+        expected_sensitive = self._types_are_sensitive(expected)
+        actual_sensitive = self._types_are_sensitive(actual)
+
+        if not actual:
+            if expected_sensitive:
+                raise SemanticError(
+                    "KS2401",
+                    f"{subject} capability taşıyan {', '.join(sorted(expected))} "
+                    "tipini bekliyor; verilen değerin tipi güvenli biçimde "
+                    "kanıtlanamadı. Capability type-laundering reddedildi.",
+                    location,
+                )
+            return
+
+        if actual.issubset(expected):
+            return
+
+        code = "KS2401" if expected_sensitive or actual_sensitive else "KS1301"
+        expected_text = " or ".join(sorted(expected)) or "<bilinmiyor>"
+        actual_text = " or ".join(sorted(actual))
+        detail = (
+            " Capability değerleri başka bir tip gibi gösterilemez."
+            if code == "KS2401"
+            else ""
+        )
+        raise SemanticError(
+            code,
+            f"{subject} {expected_text} bekler, {actual_text} bulundu.{detail}",
+            location,
+        )
+
     def _check_call_arguments(
         self,
         function: FunctionDeclaration,
@@ -556,23 +714,23 @@ class SemanticChecker:
         parameters = function.parameters
         if len(argument_types) != len(parameters):
             missing = parameters[len(argument_types):]
-            missing_capabilities = [
+            missing_sensitive = [
                 parameter
                 for parameter in missing
                 if any(
-                    type_name in CAPABILITY_TYPES
+                    self._name_is_sensitive(type_name)
                     for type_name in parameter.type_ref.names
                 )
             ]
-            if missing_capabilities:
+            if missing_sensitive:
                 required = ", ".join(
                     f"{parameter.name}: {parameter.type_ref}"
-                    for parameter in missing_capabilities
+                    for parameter in missing_sensitive
                 )
                 raise SemanticError(
                     "KS2401",
-                    f"'{function.name}' çağrısı gerekli capability jetonunu "
-                    f"almadı: {required}.",
+                    f"'{function.name}' çağrısı gerekli capability taşıyan "
+                    f"değeri almadı: {required}.",
                     location,
                 )
             raise SemanticError(
@@ -586,22 +744,12 @@ class SemanticChecker:
             zip(parameters, argument_types),
             start=1,
         ):
-            expected_capabilities = {
-                type_name
-                for type_name in parameter.type_ref.names
-                if type_name in CAPABILITY_TYPES
-            }
-            if not expected_capabilities:
-                continue
-            if actual_type not in expected_capabilities:
-                expected = " veya ".join(sorted(expected_capabilities))
-                found = actual_type or "kanıtlanamayan bir değer"
-                raise SemanticError(
-                    "KS2401",
-                    f"'{function.name}' çağrısının {index}. argümanı "
-                    f"{expected} capability jetonu olmalıdır; {found} bulundu.",
-                    location,
-                )
+            self._require_assignable(
+                parameter.type_ref.names,
+                actual_type,
+                f"'{function.name}' çağrısının {index}. argümanı",
+                location,
+            )
 
     def _check_method_call(
         self,

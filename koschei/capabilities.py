@@ -105,6 +105,10 @@ class Manifest:
 
 
 TYPE_DOMAINS = {
+    "NetRoot": "net",
+    "DiskRoot": "disk",
+    "EnvRoot": "env",
+    "ProcessRoot": "process",
     "NetCaps": "net",
     "DiskCaps": "disk",
     "DiskReadCaps": "disk",
@@ -113,28 +117,71 @@ TYPE_DOMAINS = {
 }
 
 
-def analyze(program: Program) -> Manifest:
+def _type_name_domains(
+    type_name: str,
+    structs: dict,
+    seen: set[str] | None = None,
+) -> set[str]:
+    direct = TYPE_DOMAINS.get(type_name)
+    if direct is not None:
+        return {direct}
+    declaration = structs.get(type_name)
+    if declaration is None:
+        return set()
+    visited = set(seen or ())
+    if type_name in visited:
+        return set()
+    visited.add(type_name)
+    domains: set[str] = set()
+    for field in declaration.fields:
+        for field_type in field.type_ref.names:
+            domains.update(_type_name_domains(field_type, structs, visited))
+    return domains
+
+
+def _type_ref_domains(type_ref, structs: dict) -> set[str]:
+    domains: set[str] = set()
+    for type_name in type_ref.names:
+        domains.update(_type_name_domains(type_name, structs))
+    return domains
+
+
+def analyze(program: Program, imported_structs: dict | None = None) -> Manifest:
     manifest = Manifest()
+    structs = {
+        declaration.name: declaration for declaration in program.structs
+    }
+    structs.update(imported_structs or {})
 
     for declaration in program.declarations:
-        capability_parameters = [
-            parameter.name
-            for parameter in declaration.parameters
-            if any(name in NARROWED_METHODS for name in parameter.type_ref.names)
-        ]
+        capability_parameters = []
+        parameter_domains: dict[str, set[str]] = {}
+        for parameter in declaration.parameters:
+            domains = _type_ref_domains(parameter.type_ref, structs)
+            if (
+                declaration.name == "main"
+                and parameter.type_ref.names == ("SystemCaps",)
+            ):
+                domains = set()
+            if domains:
+                capability_parameters.append(parameter)
+                parameter_domains[parameter.name] = domains
+
         if capability_parameters:
             manifest.holder_functions[declaration.name] = [
                 f"{parameter.name}: {parameter.type_ref}"
-                for parameter in declaration.parameters
-                if any(name in NARROWED_METHODS for name in parameter.type_ref.names)
+                for parameter in capability_parameters
             ]
-            for parameter in declaration.parameters:
-                for type_name in parameter.type_ref.names:
-                    domain = TYPE_DOMAINS.get(type_name)
-                    if domain is not None:
-                        manifest.required_domains.add(domain)
+            for domains in parameter_domains.values():
+                manifest.required_domains.update(domains)
 
-        if declaration.name == "main" and declaration.parameters:
+        if (
+            declaration.name == "main"
+            and any(
+                "SystemCaps" in parameter.type_ref.names
+                for parameter in declaration.parameters
+            )
+        ):
             manifest.main_has_capabilities = True
 
         root_names = {
@@ -147,10 +194,13 @@ def analyze(program: Program) -> Manifest:
         # Parametreler tipinden, 'let' ile bağlananlar daraltma çağrısından çözülür.
         bindings: dict[str, str] = {}
         for parameter in declaration.parameters:
-            for type_name in parameter.type_ref.names:
-                domain = TYPE_DOMAINS.get(type_name)
-                if domain is not None:
-                    bindings[parameter.name] = domain
+            direct_domains = {
+                TYPE_DOMAINS[type_name]
+                for type_name in parameter.type_ref.names
+                if type_name in TYPE_DOMAINS
+            }
+            if len(direct_domains) == 1:
+                bindings[parameter.name] = next(iter(direct_domains))
 
         _collect_bindings(declaration.body, root_names, bindings)
         _scan_block(declaration.body, root_names, bindings, manifest)
@@ -419,7 +469,12 @@ def analyze_graph(graph) -> Manifest:
     """
     merged = Manifest()
     for module in graph.in_dependency_order():
-        part = analyze(module.program)
+        imported_structs = {}
+        for target_key in module.imports.values():
+            target = graph.module_of(target_key)
+            for declaration in target.program.structs:
+                imported_structs[declaration.name] = declaration
+        part = analyze(module.program, imported_structs)
         merged.grants.extend(part.grants)
         for domain, operations in part.operations.items():
             merged.operations.setdefault(domain, set()).update(operations)
