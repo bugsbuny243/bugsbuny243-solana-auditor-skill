@@ -15,6 +15,7 @@ from __future__ import annotations
 
 from ast_nodes import (
     AssignmentExpression,
+    ImportDeclaration,
     ForStatement,
     ListLiteral,
     StructDeclaration,
@@ -77,14 +78,24 @@ class Parser:
     def parse(self) -> Program:
         declarations: list[FunctionDeclaration] = []
         structs: list[StructDeclaration] = []
+        imports: list[ImportDeclaration] = []
 
         while not self._is_at_end():
-            if self._check(TokenType.STRUCT):
+            if self._check(TokenType.IMPORT):
+                imports.append(self._import_declaration())
+            elif self._check(TokenType.STRUCT):
                 structs.append(self._struct_declaration())
             else:
                 declarations.append(self._function_declaration())
 
-        return Program(tuple(declarations), tuple(structs))
+        return Program(tuple(declarations), tuple(structs), tuple(imports))
+
+    def _import_declaration(self) -> ImportDeclaration:
+        import_token = self._consume(TokenType.IMPORT, "'import' bekleniyordu.")
+        name = self._consume(
+            TokenType.IDENTIFIER, "Modül adı küçük harfle başlamalıdır."
+        )
+        return ImportDeclaration(name.value, self._location(import_token))
 
     def _struct_declaration(self) -> StructDeclaration:
         struct_token = self._consume(TokenType.STRUCT, "'struct' bekleniyordu.")
