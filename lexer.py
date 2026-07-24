@@ -33,6 +33,7 @@ class TokenType(Enum):
     FOR = auto()
     IN = auto()
     STRUCT = auto()
+    IMPORT = auto()
     TRUE = auto()
     FALSE = auto()
 
@@ -114,6 +115,7 @@ class Lexer:
         "for": TokenType.FOR,
         "in": TokenType.IN,
         "struct": TokenType.STRUCT,
+        "import": TokenType.IMPORT,
         "true": TokenType.TRUE,
         "false": TokenType.FALSE,
     }
@@ -162,7 +164,7 @@ class Lexer:
         "n": "\n",
         "r": "\r",
         "t": "\t",
-        '"': '"',
+        "\"": "\"",
         "\\": "\\",
         "{": "{",
         "}": "}",
@@ -433,4 +435,3 @@ fn main(caps: SystemCaps) {
     print("KOSCHEI LEXER TEST\n" + "=" * 60)
     for token in tokenize(sample_code):
         print(token)
-

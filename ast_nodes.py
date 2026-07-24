@@ -29,6 +29,14 @@ class Parameter:
 
 
 @dataclass(frozen=True, slots=True)
+class ImportDeclaration:
+    """import risk — aynı dizindeki risk.ks dosyasını modül olarak bağlar."""
+
+    name: str
+    location: SourceLocation
+
+
+@dataclass(frozen=True, slots=True)
 class StructField:
     name: str
     type_ref: TypeRef
@@ -232,3 +240,4 @@ class FunctionDeclaration:
 class Program:
     declarations: tuple[FunctionDeclaration, ...]
     structs: tuple[StructDeclaration, ...] = ()
+    imports: tuple[ImportDeclaration, ...] = ()
