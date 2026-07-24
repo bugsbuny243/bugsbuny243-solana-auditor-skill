@@ -49,6 +49,25 @@ class KsError:
         return self.message
 
 
+@dataclass(frozen=True, slots=True)
+class ModuleValue:
+    """Çalışma anında içe aktarılmış bir modül.
+
+    Modül bir DEĞERDİR ama yetki taşımaz: içindeki fonksiyonlar da, tıpkı yerel
+    fonksiyonlar gibi, yalnızca kendilerine verilen jetonlarla iş yapabilir.
+    """
+
+    name: str
+
+
+@dataclass(frozen=True, slots=True)
+class ModuleFunction:
+    """Bir modüle ait fonksiyon; çağrılırken kendi ad alanında çalışır."""
+
+    declaration: Any
+    module_name: str
+
+
 @dataclass(slots=True)
 class StructValue:
     """Çalışma anında bir struct örneği."""
@@ -438,12 +457,22 @@ def _origin_key(url: str) -> tuple[str, str, int | None] | None:
 
 
 class Interpreter:
-    def __init__(self, program: Program, argv: list[str] | None = None) -> None:
+    def __init__(
+        self,
+        program: Program,
+        argv: list[str] | None = None,
+        namespaces: dict[str, dict[str, FunctionDeclaration]] | None = None,
+        imports: dict[str, str] | None = None,
+    ) -> None:
         self.program = program
         self.argv = list(argv or [])
         self.functions = {
             declaration.name: declaration for declaration in program.declarations
         }
+        # Modül anahtarı -> o modülün fonksiyon tablosu
+        self.namespaces = namespaces or {}
+        # Yerel import adı -> modül anahtarı
+        self.imports = imports or {}
         self.environment = _Environment()
         self._depth = 0
 
@@ -489,7 +518,10 @@ class Interpreter:
         return self._call_function(main, arguments)
 
     def _call_function(
-        self, function: FunctionDeclaration, arguments: list[Any]
+        self,
+        function: FunctionDeclaration,
+        arguments: list[Any],
+        namespace: dict[str, FunctionDeclaration] | None = None,
     ) -> Any:
         if len(arguments) != len(function.parameters):
             raise KoscheiRuntimeError(
@@ -506,7 +538,10 @@ class Interpreter:
                 function.location,
             )
         previous = self.environment
+        previous_functions = self.functions
         self.environment = _Environment()
+        if namespace is not None:
+            self.functions = namespace
         self._depth += 1
         try:
             for parameter, value in zip(function.parameters, arguments):
@@ -518,6 +553,7 @@ class Interpreter:
         finally:
             self._depth -= 1
             self.environment = previous
+            self.functions = previous_functions
 
     def _execute_block(self, block: Block, *, create_scope: bool = True) -> Any:
         if create_scope:
@@ -601,6 +637,8 @@ class Interpreter:
                 return self.functions[expression.name]
             if expression.name in {"print", "println", "Error"}:
                 return expression.name
+            if expression.name in self.imports:
+                return ModuleValue(expression.name)
             return self.environment.resolve(expression.name, expression.location).value
 
         if isinstance(expression, InterpolatedString):
@@ -727,6 +765,17 @@ class Interpreter:
             if name in {"net", "disk", "env", "process"}:
                 return getattr(receiver, name)
 
+        if isinstance(receiver, ModuleValue):
+            key = self.imports[receiver.name]
+            function = self.namespaces.get(key, {}).get(name)
+            if function is None:
+                raise KoscheiRuntimeError(
+                    "KS3101",
+                    f"'{receiver.name}' modülünde '{name}' adında bir fonksiyon yok.",
+                    location,
+                )
+            return ModuleFunction(function, key)
+
         if isinstance(receiver, StructValue):
             if name in receiver.fields:
                 return receiver.fields[name]
@@ -778,6 +827,12 @@ class Interpreter:
     ) -> Any:
         if isinstance(callee, FunctionDeclaration):
             return self._call_function(callee, arguments)
+        if isinstance(callee, ModuleFunction):
+            return self._call_function(
+                callee.declaration,
+                arguments,
+                namespace=self.namespaces.get(callee.module_name, {}),
+            )
         if callee == "println":
             self._require_arity("println", arguments, 1, location)
             print(ks_to_string(arguments[0]))
@@ -861,9 +916,20 @@ class Interpreter:
             )
 
 
-def run(program: Program, argv: list[str]) -> int:
-    semantic_check(program)
-    result = Interpreter(program, argv).execute_main()
+def run(
+    program: Program,
+    argv: list[str],
+    namespaces: dict[str, dict[str, FunctionDeclaration]] | None = None,
+    imports: dict[str, str] | None = None,
+) -> int:
+    """Programı çalıştırır.
+
+    namespaces/imports verilmezse tek dosyalık program varsayılır. Modül grafiği
+    varsa semantic denetimi çağıran taraf (CLI) yapmıştır; burada tekrarlanmaz.
+    """
+    if namespaces is None:
+        semantic_check(program)
+    result = Interpreter(program, argv, namespaces, imports).execute_main()
     if isinstance(result, KsError):
         print(f"KOSCHEI RUNTIME ERROR: {result.message}", file=sys.stderr)
         return 1
