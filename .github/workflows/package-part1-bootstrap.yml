@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - agent/packaging-1-2
+  pull_request:
 
 permissions:
   contents: write
