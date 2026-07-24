@@ -33,6 +33,7 @@ jobs:
           exec > >(tee /tmp/type-integrity-security.log) 2>&1
 
           cp .security/type_integrity_patch.py /tmp/type_integrity_patch.py
+          cp .security/type_integrity_diagnostics_patch.py /tmp/type_integrity_diagnostics_patch.py
           git fetch origin main
           git reset --hard origin/main
           python -m pip install -e .
@@ -90,7 +91,8 @@ jobs:
 
           echo "=== APPLY TYPE-INTEGRITY WALL ==="
           python /tmp/type_integrity_patch.py
-          python -m py_compile koschei/semantic.py koschei/interpreter.py koschei/capabilities.py
+          python /tmp/type_integrity_diagnostics_patch.py
+          python -m py_compile koschei/semantic.py koschei/interpreter.py koschei/capabilities.py koschei/diagnostics.py
           python -m pip install -e .
 
           echo "=== FULL UNIT AND ATTACK REGRESSION SUITE ==="
@@ -131,8 +133,8 @@ jobs:
           python -m koschei caps examples/showcase.ks --deny process
 
           rm -rf koschei_lang.egg-info
-          git add koschei/semantic.py koschei/interpreter.py koschei/capabilities.py tests/test_type_integrity_security.py
-          test "$(git diff --cached --name-only | wc -l)" -eq 4
+          git add koschei/semantic.py koschei/interpreter.py koschei/capabilities.py koschei/diagnostics.py tests/test_type_integrity_security.py
+          test "$(git diff --cached --name-only | wc -l)" -eq 5
           git diff --cached --check
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
