@@ -119,9 +119,7 @@ def command_caps(path: str, as_json: bool, denied: list[str] | None) -> int:
     if not denied:
         return 0
 
-    violations = sorted(
-        {grant.domain for grant in manifest.grants if grant.domain in set(denied)}
-    )
+    violations = sorted(set(manifest.domains()) & set(denied))
     if violations:
         print(
             "KOSCHEI POLICY: reddedilen yetki alanı talep edildi: "

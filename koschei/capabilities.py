@@ -74,19 +74,30 @@ class Manifest:
     grants: list[Grant] = field(default_factory=list)
     operations: dict[str, set[str]] = field(default_factory=dict)
     holder_functions: dict[str, list[str]] = field(default_factory=dict)
+    required_domains: set[str] = field(default_factory=set)
     main_has_capabilities: bool = False
 
     @property
     def has_any(self) -> bool:
-        return bool(self.grants) or self.main_has_capabilities
+        return (
+            bool(self.grants)
+            or bool(self.holder_functions)
+            or bool(self.required_domains)
+            or self.main_has_capabilities
+        )
 
     @property
     def is_exact(self) -> bool:
-        """Hiçbir kapsam dinamik değilse manifesto kesindir."""
-        return not any(grant.is_dynamic for grant in self.grants)
+        """Dinamik veya çağırana bırakılmış kapsam yoksa manifesto kesindir."""
+        granted_domains = {grant.domain for grant in self.grants}
+        unresolved_requirements = self.required_domains - granted_domains
+        return (
+            not any(grant.is_dynamic for grant in self.grants)
+            and not unresolved_requirements
+        )
 
     def domains(self) -> list[str]:
-        seen = {grant.domain for grant in self.grants}
+        seen = {grant.domain for grant in self.grants} | self.required_domains
         return [domain for domain in DOMAIN_ORDER if domain in seen]
 
     def grants_for(self, domain: str) -> list[Grant]:
@@ -117,6 +128,11 @@ def analyze(program: Program) -> Manifest:
                 for parameter in declaration.parameters
                 if any(name in NARROWED_METHODS for name in parameter.type_ref.names)
             ]
+            for parameter in declaration.parameters:
+                for type_name in parameter.type_ref.names:
+                    domain = TYPE_DOMAINS.get(type_name)
+                    if domain is not None:
+                        manifest.required_domains.add(domain)
 
         if declaration.name == "main" and declaration.parameters:
             manifest.main_has_capabilities = True
@@ -256,7 +272,14 @@ def render(manifest: Manifest, source_name: str) -> str:
         grants = manifest.grants_for(domain)
         title = DOMAIN_TITLES[domain]
         if not grants:
-            lines.append(f"{title}: yok")
+            if domain in manifest.required_domains:
+                lines.append(f"{title}:")
+                lines.append(
+                    f"  - {DYNAMIC}  "
+                    "(capability çağıran tarafından sağlanmalıdır)"
+                )
+            else:
+                lines.append(f"{title}: yok")
             continue
 
         lines.append(f"{title}:")
@@ -313,6 +336,7 @@ def to_dict(manifest: Manifest, source_name: str) -> dict:
             domain: sorted(names) for domain, names in sorted(manifest.operations.items())
         },
         "capability_functions": manifest.holder_functions,
+        "required_domains": sorted(manifest.required_domains),
     }
 
 
@@ -402,6 +426,7 @@ def analyze_graph(graph) -> Manifest:
         for name, parameters in part.holder_functions.items():
             label = name if module.path == graph.root_module.path else f"{module.name}.{name}"
             merged.holder_functions[label] = parameters
+        merged.required_domains.update(part.required_domains)
         merged.main_has_capabilities = (
             merged.main_has_capabilities or part.main_has_capabilities
         )

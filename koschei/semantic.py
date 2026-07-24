@@ -376,8 +376,10 @@ class SemanticChecker:
             return object_type
 
         if isinstance(expression, CallExpression):
-            for argument in expression.arguments:
+            argument_types = [
                 self._check_expression(argument)
+                for argument in expression.arguments
+            ]
 
             if isinstance(expression.callee, MemberExpression):
                 receiver_type = self._check_expression(expression.callee.object)
@@ -385,7 +387,22 @@ class SemanticChecker:
                     receiver_type,
                     expression.callee.member,
                     expression.location,
+                    argument_types,
                 )
+
+            if isinstance(expression.callee, Identifier):
+                function = self.functions.get(expression.callee.name)
+                if function is not None:
+                    self._check_call_arguments(
+                        function,
+                        argument_types,
+                        expression.location,
+                    )
+                    return (
+                        str(function.return_type)
+                        if function.return_type
+                        else "Void"
+                    )
 
             return self._check_expression(expression.callee)
 
@@ -530,11 +547,68 @@ class SemanticChecker:
 
         return None
 
+    def _check_call_arguments(
+        self,
+        function: FunctionDeclaration,
+        argument_types: list[str | None],
+        location: SourceLocation,
+    ) -> None:
+        parameters = function.parameters
+        if len(argument_types) != len(parameters):
+            missing = parameters[len(argument_types):]
+            missing_capabilities = [
+                parameter
+                for parameter in missing
+                if any(
+                    type_name in CAPABILITY_TYPES
+                    for type_name in parameter.type_ref.names
+                )
+            ]
+            if missing_capabilities:
+                required = ", ".join(
+                    f"{parameter.name}: {parameter.type_ref}"
+                    for parameter in missing_capabilities
+                )
+                raise SemanticError(
+                    "KS2401",
+                    f"'{function.name}' çağrısı gerekli capability jetonunu "
+                    f"almadı: {required}.",
+                    location,
+                )
+            raise SemanticError(
+                "KS1301",
+                f"'{function.name}' çağrısı {len(parameters)} argüman bekler, "
+                f"{len(argument_types)} verildi.",
+                location,
+            )
+
+        for index, (parameter, actual_type) in enumerate(
+            zip(parameters, argument_types),
+            start=1,
+        ):
+            expected_capabilities = {
+                type_name
+                for type_name in parameter.type_ref.names
+                if type_name in CAPABILITY_TYPES
+            }
+            if not expected_capabilities:
+                continue
+            if actual_type not in expected_capabilities:
+                expected = " veya ".join(sorted(expected_capabilities))
+                found = actual_type or "kanıtlanamayan bir değer"
+                raise SemanticError(
+                    "KS2401",
+                    f"'{function.name}' çağrısının {index}. argümanı "
+                    f"{expected} capability jetonu olmalıdır; {found} bulundu.",
+                    location,
+                )
+
     def _check_method_call(
         self,
         receiver_type: str | None,
         method_name: str,
         location: SourceLocation,
+        argument_types: list[str | None] | None = None,
     ) -> str | None:
         # List metotları yetki denetiminden ÖNCE ele alınır: 'get' aynı zamanda
         # bir yetki metodu adıdır ve liste erişimi yanlışlıkla yetki ihlali
@@ -551,6 +625,7 @@ class SemanticChecker:
                     "yok.",
                     location,
                 )
+            self._check_call_arguments(function, argument_types or [], location)
             return str(function.return_type) if function.return_type else "Void"
 
         if receiver_type == "List":
