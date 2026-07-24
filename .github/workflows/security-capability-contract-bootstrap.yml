@@ -32,6 +32,20 @@ jobs:
           set -euo pipefail
           exec > >(tee /tmp/security-capability.log) 2>&1
           cp .security/capability_contract_patch.py /tmp/capability_contract_patch.py
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path("/tmp/capability_contract_patch.py")
+          text = path.read_text(encoding="utf-8")
+          text = text.replace(
+              '                """Hiçbir kapsam dinamik değilse manifesto kesindir."""',
+              r'                \"\"\"Hiçbir kapsam dinamik değilse manifesto kesindir.\"\"\"',
+          )
+          text = text.replace(
+              '                """Dinamik veya çağırana bırakılmış kapsam yoksa manifesto kesindir."""',
+              r'                \"\"\"Dinamik veya çağırana bırakılmış kapsam yoksa manifesto kesindir.\"\"\"',
+          )
+          path.write_text(text, encoding="utf-8")
+          PY
           git fetch origin main
           git reset --hard origin/main
           python3 /tmp/capability_contract_patch.py
