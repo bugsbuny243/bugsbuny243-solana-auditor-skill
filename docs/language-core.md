@@ -114,9 +114,9 @@ Runtime (çalışma anı) hata kodları:
 Koschei kodunun tek bir doğru görünümü vardır ve bunu araç belirler:
 
 ```bash
-python koschei.py fmt program.ks           # kanonik biçimi yazdırır
-python koschei.py fmt --write program.ks   # dosyayı yerinde düzeltir
-python koschei.py fmt --check program.ks   # biçim bozuksa çıkış kodu 1 (CI kapısı)
+ks fmt program.ks           # kanonik biçimi yazdırır
+ks fmt --write program.ks   # dosyayı yerinde düzeltir
+ks fmt --check program.ks   # biçim bozuksa çıkış kodu 1 (CI kapısı)
 ```
 
 Kurallar: 4 boşluk girinti, işleçlerin iki yanında tek boşluk, `name: Type`,
@@ -139,9 +139,9 @@ birleştirmelere yol açacağı için denenmez.
 Bir programın neye erişebildiği, programı çalıştırmadan listelenebilir:
 
 ```bash
-python koschei.py caps program.ks           # okunabilir manifesto
-python koschei.py caps program.ks --json    # araçlar için JSON
-python koschei.py caps program.ks --deny net --deny process   # politika kapısı
+ks caps program.ks           # okunabilir manifesto
+ks caps program.ks --json    # araçlar için JSON
+ks caps program.ks --deny net --deny process   # politika kapısı
 ```
 
 Örnek çıktı:
@@ -177,8 +177,8 @@ Koschei programları Go ara koduna çevrilip tek bir native binary olarak
 derlenebilir:
 
 ```bash
-python koschei.py emit-go program.ks        # üretilen Go ara kaynağı (Go gerekmez)
-python koschei.py build program.ks -o prog  # tek dosya binary (Go kurulu olmalı)
+ks emit-go program.ks        # üretilen Go ara kaynağı (Go gerekmez)
+ks build program.ks -o prog  # tek dosya binary (Go kurulu olmalı)
 ./prog                                       # hiçbir bağımlılık gerektirmez
 ```
 
@@ -217,11 +217,11 @@ değer gösterimi host dilden bağımsızdır (`true`/`false`, `4.0`).
 ## CLI
 
 ```bash
-python koschei.py tokens examples/capability.ks
-python koschei.py ast examples/capability.ks
-python koschei.py check examples/capability.ks
-python koschei.py run examples/capability.ks
-python koschei.py explain KS2403      # hata kodunu açıklar, düzeltme örneği verir
+ks tokens examples/capability.ks
+ks ast examples/capability.ks
+ks check examples/capability.ks
+ks run examples/capability.ks
+ks explain KS2403      # hata kodunu açıklar, düzeltme örneği verir
 ```
 
 `explain`, ham kodu (`KS2403`) veya kodu içeren tam hata metnini kabul eder.
@@ -238,4 +238,3 @@ Tanı katalogu sabittir: yalnızca açıklama üretir, hiçbir denetimi gevşetm
   gibi metot çağrıları desteklenmez (önce bir değişkene bağlayın).
 - Yol/origin sınırları (`allow("/etc/app/")` kapsamı) statik olarak tip düzeyinde, dinamik olarak runtime aşamasında zorlanacaktır; runtime henüz yazılmadı.
 - Tanı mesajları şimdilik Türkçedir; İngilizce yerelleştirme planlanmaktadır.
-
