@@ -6,13 +6,13 @@ import tempfile
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
 
-from capabilities import analyze_graph
-from codegen_go import CodegenError, generate_go
-from interpreter import Interpreter
-from koschei import main
-from modules import ModuleError, check_graph, load_graph, namespaces
-from parser import parse
-from semantic import SemanticError
+from koschei.capabilities import analyze_graph
+from koschei.codegen_go import CodegenError, generate_go
+from koschei.interpreter import Interpreter
+from koschei.cli import main
+from koschei.modules import ModuleError, check_graph, load_graph, namespaces
+from koschei.parser import parse
+from koschei.semantic import SemanticError
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
 EXAMPLES = REPO_ROOT / "examples"
@@ -264,7 +264,7 @@ class ExampleProgramTests(unittest.TestCase):
         self.assertIn("KS2401", error)
 
     def test_module_examples_are_canonically_formatted(self) -> None:
-        from formatter import check_source
+        from koschei.formatter import check_source
 
         for path in (
             EXAMPLES / "app.ks",

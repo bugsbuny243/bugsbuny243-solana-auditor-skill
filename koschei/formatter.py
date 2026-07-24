@@ -18,7 +18,7 @@ Garantiler (testlerle sabitlenmiştir):
 
 from __future__ import annotations
 
-from lexer import Token, TokenType, tokenize
+from .lexer import Token, TokenType, tokenize
 
 INDENT = "    "
 

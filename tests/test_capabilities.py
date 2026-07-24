@@ -6,10 +6,10 @@ import pathlib
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
 
-from capabilities import DYNAMIC, analyze, render, to_dict
-from koschei import main
-from parser import parse
-from semantic import check
+from koschei.capabilities import DYNAMIC, analyze, render, to_dict
+from koschei.cli import main
+from koschei.parser import parse
+from koschei.semantic import check
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
 

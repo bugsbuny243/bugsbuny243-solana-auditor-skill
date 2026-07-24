@@ -11,8 +11,8 @@ import http.server
 import socketserver
 import threading
 
-from interpreter import DiskReadCaps, KoscheiRuntimeError, KsError, NetCaps, run
-from parser import parse
+from koschei.interpreter import DiskReadCaps, KoscheiRuntimeError, KsError, NetCaps, run
+from koschei.parser import parse
 
 
 class InterpreterTests(unittest.TestCase):

@@ -13,7 +13,7 @@
 
 from __future__ import annotations
 
-from ast_nodes import (
+from .ast_nodes import (
     AssignmentExpression,
     ImportDeclaration,
     ForStatement,
@@ -45,7 +45,7 @@ from ast_nodes import (
     UnaryExpression,
     WhileStatement,
 )
-from lexer import Token, TokenType, tokenize
+from .lexer import Token, TokenType, tokenize
 
 
 class ParserError(SyntaxError):

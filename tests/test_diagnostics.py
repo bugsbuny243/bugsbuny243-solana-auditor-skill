@@ -6,8 +6,8 @@ import re
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
 
-from diagnostics import CATALOG, known_codes, lookup
-from koschei import main
+from koschei.diagnostics import CATALOG, known_codes, lookup
+from koschei.cli import main
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
 CODE_IN_SOURCE = re.compile(r'"(KS\d{4})"')
@@ -17,7 +17,7 @@ class DiagnosticsCatalogTests(unittest.TestCase):
     def test_every_code_used_in_compiler_has_an_explanation(self) -> None:
         used: set[str] = set()
         for name in ("semantic.py", "interpreter.py", "codegen_go.py", "modules.py"):
-            path = REPO_ROOT / name
+            path = REPO_ROOT / "koschei" / name
             # Henüz eklenmemiş bir kaynak dosya testi çökertmemeli; var olan
             # her dosyanın kodları eksiksiz açıklanmış olmalıdır.
             if not path.is_file():

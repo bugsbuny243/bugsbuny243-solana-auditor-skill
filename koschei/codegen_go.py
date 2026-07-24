@@ -18,7 +18,7 @@ Hata kodları:
 
 from __future__ import annotations
 
-from ast_nodes import (
+from .ast_nodes import (
     AssignmentExpression,
     ForStatement,
     ListLiteral,
@@ -45,7 +45,7 @@ from ast_nodes import (
     UnaryExpression,
     WhileStatement,
 )
-from semantic import CAPABILITY_TYPES, GUARDED_METHODS
+from .semantic import CAPABILITY_TYPES, GUARDED_METHODS
 
 MAX_CALL_DEPTH = 512
 

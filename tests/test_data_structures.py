@@ -5,12 +5,12 @@ import pathlib
 import unittest
 from contextlib import redirect_stdout
 
-from codegen_go import CodegenError, generate_go
-from formatter import format_source
-from interpreter import Interpreter, StructValue
-from lexer import tokenize
-from parser import ParserError, parse
-from semantic import SemanticError, check
+from koschei.codegen_go import CodegenError, generate_go
+from koschei.formatter import format_source
+from koschei.interpreter import Interpreter, StructValue
+from koschei.lexer import tokenize
+from koschei.parser import ParserError, parse
+from koschei.semantic import SemanticError, check
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
 

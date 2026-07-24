@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 
-from ast_nodes import (
+from koschei.ast_nodes import (
     BinaryExpression,
     IfStatement,
     InterpolatedString,
@@ -15,7 +15,7 @@ from ast_nodes import (
     UnaryExpression,
     WhileStatement,
 )
-from parser import ParserError, parse
+from koschei.parser import ParserError, parse
 
 
 SAMPLE = '''

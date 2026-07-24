@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 
-from lexer import LexerError, TokenType, tokenize
+from koschei.lexer import LexerError, TokenType, tokenize
 
 
 class LexerTests(unittest.TestCase):

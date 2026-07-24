@@ -6,9 +6,9 @@ import tempfile
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
 
-from formatter import check_source, format_source
-from koschei import main
-from lexer import TokenType, tokenize
+from koschei.formatter import check_source, format_source
+from koschei.cli import main
+from koschei.lexer import TokenType, tokenize
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
 EXAMPLES = sorted((REPO_ROOT / "examples").glob("*.ks"))

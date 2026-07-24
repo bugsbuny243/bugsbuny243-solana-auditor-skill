@@ -27,7 +27,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from ast_nodes import (
+from .ast_nodes import (
     AssignmentExpression,
     ForStatement,
     ListLiteral,

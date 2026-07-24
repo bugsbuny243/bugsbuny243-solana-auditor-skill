@@ -59,9 +59,9 @@ Mevcut prototip şunları destekler:
 ## CLI
 
 ```bash
-python koschei.py tokens examples/capability.ks
-python koschei.py ast examples/capability.ks
-python koschei.py check examples/capability.ks
+ks tokens examples/capability.ks
+ks ast examples/capability.ks
+ks check examples/capability.ks
 ```
 
 Örnek doğrulama çıktısı:
@@ -96,4 +96,3 @@ Koschei erken compiler geliştirme aşamasındadır. Sözdizimi ve runtime sözl
 ## License
 
 MIT
-

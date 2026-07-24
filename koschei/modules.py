@@ -21,9 +21,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from ast_nodes import Program, SourceLocation
-from parser import parse
-from semantic import ImportedModule, SemanticReport, check as semantic_check
+from .ast_nodes import Program, SourceLocation
+from .parser import parse
+from .semantic import ImportedModule, SemanticReport, check as semantic_check
 
 MODULE_SUFFIX = ".ks"
 

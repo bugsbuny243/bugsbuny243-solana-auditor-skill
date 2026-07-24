@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import unittest
 
-from parser import parse
-from semantic import SemanticError, check
+from koschei.parser import parse
+from koschei.semantic import SemanticError, check
 
 
 class SemanticTests(unittest.TestCase):

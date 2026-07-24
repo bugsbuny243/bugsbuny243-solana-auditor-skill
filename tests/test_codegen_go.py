@@ -9,10 +9,10 @@ import tempfile
 import unittest
 from contextlib import redirect_stdout
 
-from codegen_go import CodegenError, generate_go
-from koschei import main
-from parser import parse
-from semantic import check
+from koschei.codegen_go import CodegenError, generate_go
+from koschei.cli import main
+from koschei.parser import parse
+from koschei.semantic import check
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
 GO_BINARY = shutil.which("go")
@@ -140,7 +140,7 @@ class NativeBuildTests(unittest.TestCase):
 
     def interpret(self, source_path: pathlib.Path) -> str:
         result = subprocess.run(
-            ["python3", "koschei.py", "run", str(source_path)],
+            ["python3", "-m", "koschei", "run", str(source_path)],
             cwd=REPO_ROOT,
             capture_output=True,
             text=True,
@@ -205,7 +205,8 @@ class NativeBuildTests(unittest.TestCase):
             result = subprocess.run(
                 [
                     "python3",
-                    "koschei.py",
+                    "-m",
+                    "koschei",
                     "build",
                     "examples/hello.ks",
                     "-o",

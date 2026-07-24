@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
 
-from ast_nodes import (
+from .ast_nodes import (
     AssignmentExpression,
     ForStatement,
     ListLiteral,
@@ -38,7 +38,7 @@ from ast_nodes import (
     UnaryExpression,
     WhileStatement,
 )
-from semantic import check as semantic_check
+from .semantic import check as semantic_check
 
 
 @dataclass(frozen=True, slots=True)

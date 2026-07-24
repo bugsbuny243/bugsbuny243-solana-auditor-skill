@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from ast_nodes import (
+from .ast_nodes import (
     AssignmentExpression,
     ForStatement,
     ListLiteral,
@@ -39,7 +39,7 @@ from ast_nodes import (
     UnaryExpression,
     WhileStatement,
 )
-from semantic import CAPABILITY_MEMBERS, NARROWED_METHODS
+from .semantic import CAPABILITY_MEMBERS, NARROWED_METHODS
 
 NARROWING_METHODS = {"allow", "allow_read_only"}
 
@@ -209,7 +209,7 @@ def _inspect(
 
     # İşlemi, alıcının bağlı olduğu alana yazar. Metot adı tek başına yeterli
     # değildir: 'get' hem NetCaps hem EnvCaps üzerinde bulunur.
-    from ast_nodes import Identifier
+    from .ast_nodes import Identifier
 
     receiver = callee.object
     if isinstance(receiver, Identifier):
@@ -229,7 +229,7 @@ def _root_domain(expression: Expression, roots: set[str]) -> str | None:
     if expression.member not in CAPABILITY_MEMBERS:
         return None
     target = expression.object
-    from ast_nodes import Identifier  # yerel import: döngüsel bağımlılığı önler
+    from .ast_nodes import Identifier  # yerel import: döngüsel bağımlılığı önler
 
     if isinstance(target, Identifier) and target.name in roots:
         return expression.member
