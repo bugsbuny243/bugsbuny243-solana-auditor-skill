@@ -385,3 +385,24 @@ def _walk_expression(expression: Expression):
         yield from _walk_expression(expression.value)
         for statement in expression.handler.statements:
             yield from _walk_statement(statement)
+
+
+def analyze_graph(graph) -> Manifest:
+    """Tüm modül grafiği için birleşik manifesto.
+
+    Tek dosyaya bakmak yanıltıcı olurdu: bir programın saldırı yüzeyi, içe
+    aktardığı modüllerin talep ettiği yetkileri de kapsar.
+    """
+    merged = Manifest()
+    for module in graph.in_dependency_order():
+        part = analyze(module.program)
+        merged.grants.extend(part.grants)
+        for domain, operations in part.operations.items():
+            merged.operations.setdefault(domain, set()).update(operations)
+        for name, parameters in part.holder_functions.items():
+            label = name if module.path == graph.root_module.path else f"{module.name}.{name}"
+            merged.holder_functions[label] = parameters
+        merged.main_has_capabilities = (
+            merged.main_has_capabilities or part.main_has_capabilities
+        )
+    return merged

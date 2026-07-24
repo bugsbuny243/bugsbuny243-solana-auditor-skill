@@ -90,6 +90,7 @@ STATEMENT_STARTERS = {
     TokenType.LET,
     TokenType.FOR,
     TokenType.STRUCT,
+    TokenType.IMPORT,
     TokenType.RETURN,
     TokenType.IF,
     TokenType.WHILE,
