@@ -68,6 +68,7 @@ jobs:
           ks run examples/app.ks
           ks caps examples/showcase.ks
 
+          rm -rf koschei_lang.egg-info
           git add -A
           git diff --cached --check
           git config user.name "github-actions[bot]"
