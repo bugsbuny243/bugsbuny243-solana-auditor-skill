@@ -1,0 +1,72 @@
+name: Packaging Part 1 Bootstrap
+
+on:
+  push:
+    branches:
+      - agent/packaging-1-2
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout bootstrap branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.21"
+
+      - name: Build exact packaging commit from main
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/koschei-packaging-payload
+          cp paketle.sh /tmp/koschei-paketle.sh
+          cp -a .packaging/part1/. /tmp/koschei-packaging-payload/
+
+          git fetch origin main
+          git reset --hard origin/main
+
+          cp /tmp/koschei-paketle.sh paketle.sh
+          bash paketle.sh
+          rm paketle.sh
+
+          cp /tmp/koschei-packaging-payload/pyproject.toml pyproject.toml
+          cp /tmp/koschei-packaging-payload/__init__.py koschei/__init__.py
+          cp /tmp/koschei-packaging-payload/__main__.py koschei/__main__.py
+          cp /tmp/koschei-packaging-payload/tests.yml .github/workflows/tests.yml
+          cp /tmp/koschei-packaging-payload/README.md README.md
+
+          test ! -e paketle.sh
+          test "$(find koschei -maxdepth 1 -type f -name '*.py' | wc -l)" -eq 13
+          test -f koschei/py.typed
+          ls koschei/
+
+          python -m unittest discover -s tests -v
+          python -m koschei run examples/app.ks
+          if python -m koschei check examples/supply_chain/main.ks; then
+            echo "HATA: supply-chain örneği exit 1 döndürmeliydi" >&2
+            exit 1
+          fi
+          python -m pip install -e .
+          ks run examples/app.ks
+          ks caps examples/showcase.ks
+
+          git add -A
+          git diff --cached --check
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "packaging 1/2: koschei package layout, console scripts, pyproject"
+          git push --force origin HEAD:agent/packaging-1-2
