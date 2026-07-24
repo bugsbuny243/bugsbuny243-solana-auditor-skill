@@ -16,9 +16,13 @@ CODE_IN_SOURCE = re.compile(r'"(KS\d{4})"')
 class DiagnosticsCatalogTests(unittest.TestCase):
     def test_every_code_used_in_compiler_has_an_explanation(self) -> None:
         used: set[str] = set()
-        for name in ("semantic.py", "interpreter.py", "codegen_go.py"):
-            source = (REPO_ROOT / name).read_text(encoding="utf-8")
-            used.update(CODE_IN_SOURCE.findall(source))
+        for name in ("semantic.py", "interpreter.py", "codegen_go.py", "modules.py"):
+            path = REPO_ROOT / name
+            # Henüz eklenmemiş bir kaynak dosya testi çökertmemeli; var olan
+            # her dosyanın kodları eksiksiz açıklanmış olmalıdır.
+            if not path.is_file():
+                continue
+            used.update(CODE_IN_SOURCE.findall(path.read_text(encoding="utf-8")))
 
         missing = sorted(used - set(CATALOG))
         self.assertEqual(missing, [], f"Katalogda eksik hata kodları: {missing}")

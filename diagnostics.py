@@ -151,6 +151,70 @@ CATALOG: dict[str, Diagnostic] = {
             "let first = items.get(0) or 0"
         ),
     ),
+    "KS1601": Diagnostic(
+        code="KS1601",
+        title="Modül dosyası bulunamadı",
+        summary="'import' ile istenen modülün .ks dosyası bulunamadı.",
+        why=(
+            "Koschei'de modül çözümlemesi dosya sistemine dayanır: konfigürasyon "
+            "dosyası, paket bildirimi veya derleme betiği yoktur. 'import risk', "
+            "içe aktaran dosyanın yanındaki 'risk.ks' anlamına gelir."
+        ),
+        fix=(
+            "Dosya adının modül adıyla birebir aynı olduğundan ve içe aktaran "
+            "dosyayla aynı dizinde bulunduğundan emin olun."
+        ),
+        example="import risk    // aynı dizindeki risk.ks dosyasını bağlar",
+    ),
+    "KS1602": Diagnostic(
+        code="KS1602",
+        title="Döngüsel import",
+        summary="Modüller birbirini doğrudan veya dolaylı olarak içe aktarıyor.",
+        why=(
+            "Halka oluşturan modüllerin hangi sırayla yükleneceği tanımsızdır. "
+            "Koschei bu belirsizliği kabul etmek yerine reddeder."
+        ),
+        fix=(
+            "Ortak kodu üçüncü bir modüle taşıyın ve iki modül de onu içe aktarsın."
+        ),
+        example="// a.ks -> ortak.ks  ve  b.ks -> ortak.ks",
+    ),
+    "KS1603": Diagnostic(
+        code="KS1603",
+        title="Aynı modül birden fazla kez içe aktarılmış",
+        summary="Bir dosyada aynı 'import' satırı birden çok kez yazılmış.",
+        why="Yinelenen import bir yazım hatasının işaretidir; sessizce yok sayılmaz.",
+        fix="Fazladan 'import' satırını silin.",
+        example="import risk",
+    ),
+    "KS1604": Diagnostic(
+        code="KS1604",
+        title="İki modül aynı struct adını tanımlıyor",
+        summary=(
+            "İçe aktarılan bir modüldeki struct adı, bu dosyadaki ya da başka bir "
+            "modüldeki bir struct adıyla çakışıyor."
+        ),
+        why=(
+            "İçe aktarılan struct'lar niteliksiz adlarıyla kullanılır. Aynı adın iki "
+            "kaynaktan gelmesi hangi tipin kastedildiğini belirsizleştirir."
+        ),
+        fix="Struct adlarından birini değiştirin.",
+        example="struct HolderRow { address: String }   // çakışmayan bir ad",
+    ),
+    "KS1605": Diagnostic(
+        code="KS1605",
+        title="Modülde böyle bir fonksiyon veya struct yok",
+        summary="İçe aktarılan modülde bulunmayan bir isme erişilmeye çalışıldı.",
+        why=(
+            "Modül sınırları derleme zamanında denetlenir; yazım hatası çalışma anına "
+            "taşınmaz."
+        ),
+        fix=(
+            "Modüldeki üst düzey fonksiyon ve struct adlarını kontrol edin. v1'de bir "
+            "modülün tüm üst düzey tanımları içe aktarılabilir."
+        ),
+        example="import risk\nlet etiket = risk.label(62)",
+    ),
     "KS2401": Diagnostic(
         code="KS2401",
         title="Gerekli yetki bu scope içinde mevcut değil",
