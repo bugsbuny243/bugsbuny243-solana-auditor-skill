@@ -1,0 +1,49 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "koschei-lang"
+version = "0.6.0"
+description = "Koschei — a capability-secure programming language where an imported package cannot touch the disk or network without a token"
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "MIT" }
+authors = [{ name = "Onur Sel" }]
+keywords = [
+    "programming-language",
+    "compiler",
+    "capability-security",
+    "object-capability",
+    "supply-chain-security",
+    "sandbox",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Compilers",
+    "Topic :: Security",
+]
+
+# Bağımlılık YOKTUR ve olmayacaktır: derleyicinin kendisi yalnızca Python
+# standart kütüphanesine dayanır. Bir güvenlik dilinin kurulumu, güvenmek
+# zorunda olduğunuz paket sayısını artırmamalıdır.
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/bugsbuny243/koschei-lang"
+Repository = "https://github.com/bugsbuny243/koschei-lang"
+Issues = "https://github.com/bugsbuny243/koschei-lang/issues"
+
+[project.scripts]
+koschei = "koschei.cli:main"
+ks = "koschei.cli:main"
+
+[tool.setuptools]
+packages = ["koschei"]
+
+[tool.setuptools.package-data]
+koschei = ["py.typed"]
