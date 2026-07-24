@@ -8,6 +8,8 @@ Hata kodları:
     KS1401  Ele alınmayan hata değeri
     KS1501  Struct literalinde alan hatası (eksik, bilinmeyen veya yinelenen)
     KS1502  Struct'ta böyle bir alan yok
+    KS1604  İki modül aynı struct adını tanımlıyor
+    KS1605  Modülde böyle bir fonksiyon veya struct yok
     KS2401  Gerekli yetki bu scope içinde mevcut değil
     KS2402  Kök yetki doğrudan kullanılamaz (önce allow ile daraltılmalı)
     KS2403  Daraltılmış yetki yeniden genişletilemez
@@ -131,13 +133,44 @@ class SemanticError(Exception):
         )
 
 
+MODULE_TYPE_PREFIX = "Module:"
+
+
+class ImportedModule:
+    """İçe aktarılmış bir modülün dışarıya açık yüzü."""
+
+    __slots__ = ("name", "functions", "structs")
+
+    def __init__(self, name: str, functions: dict, structs: dict) -> None:
+        self.name = name
+        self.functions = functions
+        self.structs = structs
+
+
 class SemanticChecker:
-    def __init__(self, program: Program) -> None:
+    def __init__(
+        self, program: Program, imports: dict[str, ImportedModule] | None = None
+    ) -> None:
         self.program = program
+        self.imports = imports or {}
         self.functions = {declaration.name: declaration for declaration in program.declarations}
         self.structs = {
             declaration.name: declaration for declaration in program.structs
         }
+
+        # İçe aktarılan struct'lar niteliksiz adlarıyla kullanılabilir; aynı adın
+        # iki modülden gelmesi belirsizlik yaratacağı için reddedilir.
+        for module in self.imports.values():
+            for name, declaration in module.structs.items():
+                existing = self.structs.get(name)
+                if existing is not None and existing is not declaration:
+                    raise SemanticError(
+                        "KS1604",
+                        f"'{name}' struct'ı hem bu dosyada hem de '{module.name}' "
+                        "modülünde tanımlı. Adlardan birini değiştirin.",
+                        declaration.location,
+                    )
+                self.structs.setdefault(name, declaration)
         self.scopes: list[dict[str, Symbol]] = []
         self.variable_count = 0
         self.capability_count = 0
@@ -293,6 +326,8 @@ class SemanticChecker:
             if expression.name in self.functions:
                 function = self.functions[expression.name]
                 return str(function.return_type) if function.return_type else "Void"
+            if expression.name in self.imports:
+                return MODULE_TYPE_PREFIX + expression.name
             if expression.name in BUILTIN_CALLS:
                 return None
             self._raise_unknown_identifier(expression)
@@ -303,6 +338,24 @@ class SemanticChecker:
             if object_type == "SystemCaps" and expression.member in CAPABILITY_MEMBERS:
                 self.capability_count += 1
                 return CAPABILITY_MEMBERS[expression.member]
+
+            if isinstance(object_type, str) and object_type.startswith(
+                MODULE_TYPE_PREFIX
+            ):
+                module = self.imports[object_type[len(MODULE_TYPE_PREFIX):]]
+                function = module.functions.get(expression.member)
+                if function is not None:
+                    return (
+                        str(function.return_type) if function.return_type else "Void"
+                    )
+                if expression.member in module.structs:
+                    return expression.member
+                raise SemanticError(
+                    "KS1605",
+                    f"'{module.name}' modülünde '{expression.member}' adında bir "
+                    "fonksiyon veya struct yok.",
+                    expression.location,
+                )
 
             if object_type in CAPABILITY_TYPES:
                 return None
@@ -486,6 +539,20 @@ class SemanticChecker:
         # List metotları yetki denetiminden ÖNCE ele alınır: 'get' aynı zamanda
         # bir yetki metodu adıdır ve liste erişimi yanlışlıkla yetki ihlali
         # sayılmamalıdır.
+        if isinstance(receiver_type, str) and receiver_type.startswith(
+            MODULE_TYPE_PREFIX
+        ):
+            module = self.imports[receiver_type[len(MODULE_TYPE_PREFIX):]]
+            function = module.functions.get(method_name)
+            if function is None:
+                raise SemanticError(
+                    "KS1605",
+                    f"'{module.name}' modülünde '{method_name}' adında bir fonksiyon "
+                    "yok.",
+                    location,
+                )
+            return str(function.return_type) if function.return_type else "Void"
+
         if receiver_type == "List":
             if method_name in LIST_METHODS:
                 return "List" if method_name == "push" else None
@@ -564,14 +631,27 @@ class SemanticChecker:
             )
 
         if isinstance(callee, MemberExpression):
-            return self._receiver_type(callee.object) in NARROWED_METHODS
+            receiver = self._receiver_type(callee.object)
+            if isinstance(receiver, str) and receiver.startswith(MODULE_TYPE_PREFIX):
+                module = self.imports.get(receiver[len(MODULE_TYPE_PREFIX):])
+                function = module.functions.get(callee.member) if module else None
+                return (
+                    function is not None
+                    and function.return_type is not None
+                    and "Error" in function.return_type.names
+                )
+            return receiver in NARROWED_METHODS
 
         return False
 
     def _receiver_type(self, expression: Expression) -> str | None:
         if isinstance(expression, Identifier):
             symbol = self._resolve(expression.name)
-            return symbol.type_name if symbol is not None else None
+            if symbol is not None:
+                return symbol.type_name
+            if expression.name in self.imports:
+                return MODULE_TYPE_PREFIX + expression.name
+            return None
         if isinstance(expression, MemberExpression):
             object_type = self._receiver_type(expression.object)
             if object_type == "SystemCaps" and expression.member in CAPABILITY_MEMBERS:
@@ -623,5 +703,7 @@ class SemanticChecker:
         )
 
 
-def check(program: Program) -> SemanticReport:
-    return SemanticChecker(program).check()
+def check(
+    program: Program, imports: dict[str, ImportedModule] | None = None
+) -> SemanticReport:
+    return SemanticChecker(program, imports).check()
